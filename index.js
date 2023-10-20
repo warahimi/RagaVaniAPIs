@@ -376,40 +376,6 @@ app.post("/user/:userId/recording", async (req, res) => {
         "description": "Raga Bhairavi is often referred to as the queen of ragas..."
     }
  */
-// app.post("/user/:userId/favorite_raga", async (req, res) => {
-//   try {
-//     // Extracting user ID from the URL parameter and raga object from request body
-//     const { userId } = req.params;
-//     const raga = req.body;
-
-//     // Validations: Ensure raga object has essential properties
-//     if (!raga.name || !raga.category || !raga.inputs) {
-//       return res.status(400).send("Error: Missing essential raga properties.");
-//     }
-
-//     // Reference to the 'users' collection and specific user document in Firestore
-//     const userDocRef = admin.firestore().collection("users").doc(userId);
-
-//     // Check if user exists
-//     const userDoc = await userDocRef.get();
-//     if (!userDoc.exists) {
-//       return res.status(404).send("Error: User not found.");
-//     }
-
-//     // Reference to 'favorite_raga' sub-collection for the specified user
-//     const favoriteRagaCollection = userDocRef.collection("favorite_ragas");
-
-//     // Adding the raga to 'favorite_raga' sub-collection and fetching new raga data
-//     const newRagaRef = await favoriteRagaCollection.add(raga);
-//     const newRaga = await newRagaRef.get();
-
-//     // Sending back a response with status 201 (Created) and the created raga object
-//     res.status(201).send({ id: newRagaRef.id, ...newRaga.data() });
-//   } catch (error) {
-//     // Handling errors and responding with status 400 (Bad Request) and error message
-//     res.status(400).send(`Error: ${error}`);
-//   }
-// });
 
 app.post("/user/:userId/favorite_raga", async (req, res) => {
   try {
@@ -856,5 +822,184 @@ app.get("/getMyPrivateRecordings/:userId", async (req, res) => {
   }
 });
 
+/*
+  API to add a raga from raga database to the user's profile under the favorite_raga_from_ragas sub collection
+  it will store a reference or ragaId to the favorite_raga_from_ragas
+  URL: https://us-central1-ragavaniauth.cloudfunctions.net/api/user/4Ttv7vL2LoaMIvxGVrB5uvWz01t2/favorite_raga_from_ragas/2H2kwuYXl3dY78gh9Obp
+ */
+app.post("/user/:userId/favorite_raga_from_ragas/:ragaId", async (req, res) => {
+  try {
+    const { userId, ragaId } = req.params;
+
+    if (!userId || !ragaId) {
+      // Send a 400 Bad Request if either userId or ragaId isn't provided
+      return res.status(400).send("Both User ID and Raga ID must be provided");
+    }
+
+    // Reference to the specific raga in ragas collection
+    const ragaRef = admin.firestore().collection("ragas").doc(ragaId);
+
+    // Check if the raga actually exists in the 'ragas' collection
+    const ragaSnapshot = await ragaRef.get();
+    if (!ragaSnapshot.exists) {
+      return res.status(404).send("Specified Raga not found");
+    }
+
+    // Reference to the user's favorite_ragas_from_ragas sub-collection
+    const userFavoriteRagasRef = admin
+      .firestore()
+      .collection("users")
+      .doc(userId)
+      .collection("favorite_ragas_from_ragas");
+
+    // Add the raga reference to the user's favorite_ragas_from_ragas
+    await userFavoriteRagasRef.add({
+      ragaReference: ragaRef, // This will store a reference to the raga in ragas collection
+    });
+
+    res.status(200).send(`Raga with ID: ${ragaId} added to user's favorites`);
+  } catch (error) {
+    console.error("Error:", error);
+    res.status(500).send(`Internal Server Error: ${error}`);
+  }
+});
+
+/*  
+    DELETE endpoint to remove a favorite raga for a specific user
+    URL Example: https://us-central1-ragavaniauth.cloudfunctions.net/api/user/zU8RUJx6kOgLO1gjpa8sGfJJ6Ut2/favorite_raga/raga12345Id
+*/
+
+app.delete("/user/:userId/favorite_raga/:ragaId", async (req, res) => {
+  try {
+    // Extracting user ID and raga ID from the URL parameters
+    const { userId, ragaId } = req.params;
+
+    // Reference to the 'users' collection and specific user document in Firestore
+    const userDocRef = admin.firestore().collection("users").doc(userId);
+
+    // Check if user exists
+    const userDoc = await userDocRef.get();
+    if (!userDoc.exists) {
+      return res.status(404).send("Error: User not found.");
+    }
+
+    // Reference to the 'favorite_ragas' sub-collection and specific raga document for the specified user
+    const ragaDocRef = userDocRef.collection("favorite_ragas").doc(ragaId);
+
+    // Check if raga exists
+    const ragaDoc = await ragaDocRef.get();
+    if (!ragaDoc.exists) {
+      return res.status(404).send("Error: Raga not found.");
+    }
+
+    // Delete the specified raga document
+    await ragaDocRef.delete();
+
+    // Responding with a success message
+    res
+      .status(200)
+      .send(
+        `Raga with ID ${ragaId} successfully deleted from user ${userId}'s favorites.`
+      );
+  } catch (error) {
+    // Handling errors and responding with status 400 (Bad Request) and error message
+    res.status(400).send(`Error: ${error}`);
+  }
+});
+
+/*
+    API to get a user's favoirite raga from favorite_ragas_from_ragas sub collection 
+    favorite_ragas_from_ragas store IDs of ragas from ragas collection
+*/
+app.get("/user/:userId/favorite_ragas_from_ragas", async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    // Reference to the user's favorite_ragas_from_ragas sub-collection
+    const userFavoriteRagasRef = admin
+      .firestore()
+      .collection("users")
+      .doc(userId)
+      .collection("favorite_ragas_from_ragas");
+
+    // Fetch the raga references for the user
+    const favoriteRagasSnapshots = await userFavoriteRagasRef.get();
+
+    // If no favorite ragas found, return empty array
+    if (favoriteRagasSnapshots.empty) {
+      return res.status(200).json([]);
+    }
+
+    // Prepare an array to hold the promises for fetching each raga's details
+    const ragaFetchPromises = [];
+
+    // For each favorite raga reference, prepare a promise to fetch its details
+    favoriteRagasSnapshots.forEach((doc) => {
+      const ragaRef = doc.data().ragaReference;
+      ragaFetchPromises.push(ragaRef.get());
+    });
+
+    // Resolve all promises to fetch the raga details
+    const ragaDetailsSnapshots = await Promise.all(ragaFetchPromises);
+
+    // Extract the actual data from the snapshots and prepare the response array
+    const favoriteRagas = ragaDetailsSnapshots.map((snapshot) =>
+      snapshot.data()
+    );
+
+    // Return the array of favorite ragas to the client
+    res.status(200).json(favoriteRagas);
+  } catch (error) {
+    console.error("Error:", error);
+    res.status(500).send(`Internal Server Error: ${error}`);
+  }
+});
+
+/*
+  API endpoint to delete a ragaId from the user's favorite_ragas_from_ragas sub collection
+*/
+
+app.delete(
+  "/user/:userId/favorite_ragas_from_ragas/:ragaId",
+  async (req, res) => {
+    try {
+      const { userId, ragaId } = req.params;
+
+      // Reference to the user's favorite_ragas_from_ragas sub-collection
+      const userFavoriteRagasRef = admin
+        .firestore()
+        .collection("users")
+        .doc(userId)
+        .collection("favorite_ragas_from_ragas");
+
+      // Query the sub-collection to find the document with the specified raga reference
+      const favoriteRagaQuery = userFavoriteRagasRef.where(
+        "ragaReference",
+        "==",
+        admin.firestore().collection("ragas").doc(ragaId)
+      );
+      const querySnapshot = await favoriteRagaQuery.get();
+
+      // If no such document is found, respond accordingly
+      if (querySnapshot.empty) {
+        return res
+          .status(404)
+          .send(`Raga with ID: ${ragaId} not found in user's favorites.`);
+      }
+
+      // If the document is found, delete it
+      const doc = querySnapshot.docs[0]; // We're taking the first result since ragaId should be unique and we expect only one match
+      await doc.ref.delete();
+
+      // Respond to the client indicating successful deletion
+      res
+        .status(200)
+        .send(`Raga with ID: ${ragaId} removed from user's favorites.`);
+    } catch (error) {
+      console.error("Error:", error);
+      res.status(500).send(`Internal Server Error: ${error}`);
+    }
+  }
+);
 // exports the APIs to the firestore database
 exports.api = functions.https.onRequest(app);
