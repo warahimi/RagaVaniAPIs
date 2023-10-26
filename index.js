@@ -864,6 +864,52 @@ app.post("/user/:userId/favorite_raga_from_ragas/:ragaId", async (req, res) => {
   }
 });
 
+// With ID
+// app.post("/user/:userId/favorite_raga_from_ragas/:ragaId", async (req, res) => {
+//   try {
+//     const { userId, ragaId } = req.params;
+
+//     if (!userId || !ragaId) {
+//       // Send a 400 Bad Request if either userId or ragaId isn't provided
+//       return res.status(400).send("Both User ID and Raga ID must be provided");
+//     }
+
+//     // Reference to the specific raga in ragas collection
+//     const ragaRef = admin.firestore().collection("ragas").doc(ragaId);
+
+//     // Check if the raga actually exists in the 'ragas' collection
+//     const ragaSnapshot = await ragaRef.get();
+//     if (!ragaSnapshot.exists) {
+//       return res.status(404).send("Specified Raga not found");
+//     }
+
+//     // Reference to the user's favorite_ragas_from_ragas sub-collection
+//     const userFavoriteRagasRef = admin
+//       .firestore()
+//       .collection("users")
+//       .doc(userId)
+//       .collection("favorite_ragas_from_ragas");
+
+//     // Generate a new document ID
+//     const newFavoriteRagaDocRef = userFavoriteRagasRef.doc();
+
+//     // Use the generated ID both as the document ID and within the document itself
+//     await newFavoriteRagaDocRef.set({
+//       id: newFavoriteRagaDocRef.id,
+//       ragaReference: ragaRef, // This will store a reference to the raga in ragas collection
+//     });
+
+//     res
+//       .status(200)
+//       .send(
+//         `Raga with ID: ${ragaId} added to user's favorites with document ID: ${newFavoriteRagaDocRef.id}`
+//       );
+//   } catch (error) {
+//     console.error("Error:", error);
+//     res.status(500).send(`Internal Server Error: ${error}`);
+//   }
+// });
+
 /*  
     DELETE endpoint to remove a favorite raga for a specific user
     URL Example: https://us-central1-ragavaniauth.cloudfunctions.net/api/user/zU8RUJx6kOgLO1gjpa8sGfJJ6Ut2/favorite_raga/raga12345Id
@@ -956,7 +1002,7 @@ app.get("/user/:userId/favorite_ragas_from_ragas", async (req, res) => {
 });
 
 /*
-  API endpoint to delete a ragaId from the user's favorite_ragas_from_ragas sub collection
+  API endpoint to delete a ragaId/ reference from the user's favorite_ragas_from_ragas sub collection
 */
 
 app.delete(
@@ -1001,5 +1047,105 @@ app.delete(
     }
   }
 );
+
+// add a version document
+/*
+  {
+  "name": "users",
+  "version": "1.0.1"
+}
+
+ */
+app.post("/versions", async (req, res) => {
+  try {
+    // Extracting collection name and version from the request body
+    const { name, version } = req.body;
+
+    // Basic validation
+    if (!name || !version) {
+      return res.status(400).send("Both name and version must be provided");
+    }
+
+    // Reference to the 'versions' collection
+    const versionsRef = admin.firestore().collection("versions");
+
+    // Generate a new document reference
+    const newVersionDocRef = versionsRef.doc();
+
+    // Set the details in the new document
+    await newVersionDocRef.set({
+      id: newVersionDocRef.id,
+      name: name,
+      version: version,
+    });
+
+    res
+      .status(200)
+      .send(
+        `Version for collection ${name} added with ID: ${newVersionDocRef.id}`
+      );
+  } catch (error) {
+    console.error("Error:", error);
+    res.status(500).send(`Internal Server Error: ${error}`);
+  }
+});
+
+// API to get collection versions
+/*
+  [
+    {
+        "id": "WVbU6l21Q5xrcXuzzzxc",
+        "name": "users",
+        "version": "1.0.1"
+    },
+    {
+        "id": "zi0kPHKzv5mYizpiRoQq",
+        "name": "users",
+        "version": "1.0.1"
+    }
+]
+ */
+app.get("/versions/:collection_name", async (req, res) => {
+  try {
+    const { collection_name } = req.params;
+
+    // Validate the input
+    if (!collection_name) {
+      return res.status(400).send("Collection name must be provided");
+    }
+
+    // Reference to the 'versions' collection
+    const versionsRef = admin.firestore().collection("versions");
+
+    // Query the collection to find all documents with the matching collection name
+    const querySnapshot = await versionsRef
+      .where("name", "==", collection_name)
+      .get();
+
+    // Check if there are any matching documents
+    if (querySnapshot.empty) {
+      return res
+        .status(404)
+        .send("No versions found for the specified collection name");
+    }
+
+    // Extract the necessary data from the documents
+    const responseData = [];
+    querySnapshot.forEach((doc) => {
+      const docData = doc.data();
+      responseData.push({
+        id: doc.id,
+        name: docData.name,
+        version: docData.version,
+      });
+    });
+
+    // Send the response back as JSON
+    res.status(200).json(responseData);
+  } catch (error) {
+    console.error("Error:", error);
+    res.status(500).send(`Internal Server Error: ${error}`);
+  }
+});
 // exports the APIs to the firestore database
 exports.api = functions.https.onRequest(app);
