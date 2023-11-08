@@ -300,66 +300,71 @@ app.get("/user/:userId", async (req, res) => {
  * Request Body should include: name(String), is_public(Boolean), and URL(String).
  * 
  *  URL Example: https://us-central1-ragavaniauth.cloudfunctions.net/api/user/zU8RUJx6kOgLO1gjpa8sGfJJ6Ut2/recording
- *  JASON file Example:
  *  {
-      "name": "My Recording 4",
-      "is_public": true,
-      "URL": "https://example.com/recording4.mp3"
-    }
+    "name": "My Recording",
+    "is_public": true,
+    "URL": "https://example.com/myrecording.mp3",
+    "date_created": "2023-11-07T12:34:56Z",
+    "duration": 120.5
+  }
  */
+
 app.post("/user/:userId/recording", async (req, res) => {
   try {
-    // Extracting userId from the request parameters
-    const userId = req.params.userId;
+    // Extracting userId and recording details from the request
+    const { userId } = req.params;
+    const { name, is_public, URL, date_created, duration } = req.body;
 
-    // Extracting recording data from the request body
-    const { name, is_public, URL } = req.body;
-
-    // Validate data: Ensure all data is provided and is of correct type
+    // Validate provided recording data
     if (
       !name ||
       typeof name !== "string" ||
       is_public === undefined ||
       typeof is_public !== "boolean" ||
       !URL ||
-      typeof URL !== "string"
+      typeof URL !== "string" ||
+      !date_created ||
+      typeof date_created !== "string" ||
+      duration === undefined ||
+      typeof duration !== "number"
     ) {
       res.status(400).send({ message: "Bad Request: Invalid input data" });
       return;
     }
 
-    // Retrieve user's document reference
+    // Access the Firestore users collection
     const userDocRef = admin.firestore().collection("users").doc(userId);
 
-    // Check if user exists
+    // Check for the existence of the user document
     const userDoc = await userDocRef.get();
     if (!userDoc.exists) {
       res.status(404).send({ message: "User not found" });
       return;
     }
 
-    // Create a new recording document reference in the "recordings" sub-collection
+    // Create a new recording in the "recordings" sub-collection
     const newRecordingDocRef = userDocRef.collection("recordings").doc();
 
-    // Define the recording data
+    // Prepare the recording data, including the new fields
     const recordingData = {
-      id: newRecordingDocRef.id, // ID is same as document ID
-      date_created: admin.firestore.Timestamp.now(), // Current timestamp
+      id: newRecordingDocRef.id,
       name,
       is_public,
       URL,
+      date_created, // Store the date_created as a string
+      duration,
     };
 
-    // Add the recording data to the new document in Firestore
+    // Save the new recording data to Firestore
     await newRecordingDocRef.set(recordingData);
 
-    // Send success response
-    res.status(200).send({
+    // Respond with the saved recording data, including the generated ID
+    res.status(201).send({
       message: "Recording added successfully",
-      recordingId: newRecordingDocRef.id, // Return new recording's ID
+      recording: recordingData, // Return the saved recording data
     });
   } catch (error) {
-    // Send error response if any exception occurs
+    // Handle any errors
     res.status(500).send(`Internal Server Error: ${error.message}`);
   }
 });
@@ -505,6 +510,7 @@ app.post("/user/:userId/favorite_raga", async (req, res) => {
         }
     ]
  */
+
 app.get("/getAllUsersPublicRecordings", async (req, res) => {
   try {
     const usersCollection = admin.firestore().collection("users");
@@ -525,10 +531,20 @@ app.get("/getAllUsersPublicRecordings", async (req, res) => {
 
       // Iterate through each public recording and add it to the userPublicRecordings array
       recordingsSnapshot.forEach((recordingDoc) => {
-        userPublicRecordings.push({
+        const recordingData = recordingDoc.data();
+
+        // Construct a SavedRecording object including the id
+        const savedRecording = {
           id: recordingDoc.id,
-          ...recordingDoc.data(),
-        });
+          name: recordingData.name,
+          isPublic: recordingData.is_public,
+          URL: recordingData.URL,
+          // Assuming date_created is stored as a string, otherwise convert it to a string
+          date_created: recordingData.date_created,
+          duration: recordingData.duration,
+        };
+
+        userPublicRecordings.push(savedRecording);
       });
 
       // If there are any public recordings, add the user and their recordings to results
@@ -696,7 +712,21 @@ app.get("/getAllMyRecordings/:userId", async (req, res) => {
     // Building the response object
     const recordings = [];
     snapshot.forEach((doc) => {
-      recordings.push({ id: doc.id, ...doc.data() });
+      // Extract recording data
+      const recordingData = doc.data();
+
+      // Construct SavedRecording object including the id
+      const savedRecording = {
+        id: doc.id,
+        name: recordingData.name,
+        isPublic: recordingData.is_public,
+        URL: recordingData.URL,
+        // Assuming date_created is stored as a string, otherwise convert it to a string
+        date_created: recordingData.date_created,
+        duration: recordingData.duration,
+      };
+
+      recordings.push(savedRecording);
     });
 
     // Responding with status 200 (OK) and the recordings array
@@ -735,6 +765,7 @@ app.get("/getAllMyRecordings/:userId", async (req, res) => {
         }
     ]
  */
+
 app.get("/getMyPublicRecordings/:userId", async (req, res) => {
   try {
     // Extracting userId from the path parameters
@@ -758,7 +789,21 @@ app.get("/getMyPublicRecordings/:userId", async (req, res) => {
     // Building the response object
     const recordings = [];
     snapshot.forEach((doc) => {
-      recordings.push({ id: doc.id, ...doc.data() });
+      // Extract recording data
+      const recordingData = doc.data();
+
+      // Construct SavedRecording object including the id
+      const savedRecording = {
+        id: doc.id,
+        name: recordingData.name,
+        isPublic: recordingData.is_public,
+        URL: recordingData.URL,
+        // Assuming date_created is stored as a string, otherwise convert it to a string
+        date_created: recordingData.date_created,
+        duration: recordingData.duration,
+      };
+
+      recordings.push(savedRecording);
     });
 
     // Responding with status 200 (OK) and the recordings array
@@ -799,25 +844,37 @@ app.get("/getMyPrivateRecordings/:userId", async (req, res) => {
       .doc(userId)
       .collection("recordings");
 
-    // Querying for all public recordings
+    // Querying for all private recordings (where is_public is false)
     const snapshot = await recordingsRef.where("is_public", "==", false).get();
 
     if (snapshot.empty) {
-      // No public recordings found
+      // No private recordings found
       return res.status(404).send({ message: "No private recordings found" });
     }
 
     // Building the response object
     const recordings = [];
     snapshot.forEach((doc) => {
-      recordings.push({ id: doc.id, ...doc.data() });
+      // Constructing each recording's data, including the new fields
+      const recordingData = doc.data();
+
+      const savedRecording = {
+        id: doc.id,
+        name: recordingData.name,
+        isPublic: recordingData.is_public,
+        URL: recordingData.URL,
+        date_created: recordingData.date_created, // Stored as a string
+        duration: recordingData.duration,
+      };
+
+      recordings.push(savedRecording);
     });
 
     // Responding with status 200 (OK) and the recordings array
     return res.status(200).send(recordings);
   } catch (error) {
     // Handling errors and responding with status 500 (Internal Server Error) and error message
-    console.error("Error fetching public recordings:", error);
+    console.error("Error fetching private recordings:", error);
     return res.status(500).send({ message: "Internal Server Error" });
   }
 });
@@ -863,57 +920,6 @@ app.post("/user/:userId/favorite_raga_from_ragas/:ragaId", async (req, res) => {
     res.status(500).send(`Internal Server Error: ${error}`);
   }
 });
-
-// With ID
-// app.post("/user/:userId/favorite_raga_from_ragas/:ragaId", async (req, res) => {
-//   try {
-//     const { userId, ragaId } = req.params;
-
-//     if (!userId || !ragaId) {
-//       // Send a 400 Bad Request if either userId or ragaId isn't provided
-//       return res.status(400).send("Both User ID and Raga ID must be provided");
-//     }
-
-//     // Reference to the specific raga in ragas collection
-//     const ragaRef = admin.firestore().collection("ragas").doc(ragaId);
-
-//     // Check if the raga actually exists in the 'ragas' collection
-//     const ragaSnapshot = await ragaRef.get();
-//     if (!ragaSnapshot.exists) {
-//       return res.status(404).send("Specified Raga not found");
-//     }
-
-//     // Reference to the user's favorite_ragas_from_ragas sub-collection
-//     const userFavoriteRagasRef = admin
-//       .firestore()
-//       .collection("users")
-//       .doc(userId)
-//       .collection("favorite_ragas_from_ragas");
-
-//     // Generate a new document ID
-//     const newFavoriteRagaDocRef = userFavoriteRagasRef.doc();
-
-//     // Use the generated ID both as the document ID and within the document itself
-//     await newFavoriteRagaDocRef.set({
-//       id: newFavoriteRagaDocRef.id,
-//       ragaReference: ragaRef, // This will store a reference to the raga in ragas collection
-//     });
-
-//     res
-//       .status(200)
-//       .send(
-//         `Raga with ID: ${ragaId} added to user's favorites with document ID: ${newFavoriteRagaDocRef.id}`
-//       );
-//   } catch (error) {
-//     console.error("Error:", error);
-//     res.status(500).send(`Internal Server Error: ${error}`);
-//   }
-// });
-
-/*  
-    DELETE endpoint to remove a favorite raga for a specific user
-    URL Example: https://us-central1-ragavaniauth.cloudfunctions.net/api/user/zU8RUJx6kOgLO1gjpa8sGfJJ6Ut2/favorite_raga/raga12345Id
-*/
 
 app.delete("/user/:userId/favorite_raga/:ragaId", async (req, res) => {
   try {
