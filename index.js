@@ -422,6 +422,48 @@ app.post("/user/:userId/favorite_raga", async (req, res) => {
   }
 });
 
+/**
+  API end point to delete a recording from user's profile "recordings" sub collection 
+  it also returns the deleted recording object
+ */
+app.delete("/user/:userId/recording/:recordingId", async (req, res) => {
+  try {
+    // Extract userId and recordingId from the request parameters
+    const { userId, recordingId } = req.params;
+
+    // Access the Firestore users collection and target the specific recording
+    const recordingDocRef = admin
+      .firestore()
+      .collection("users")
+      .doc(userId)
+      .collection("recordings")
+      .doc(recordingId);
+
+    // Check for the existence of the recording document
+    const recordingDoc = await recordingDocRef.get();
+    if (!recordingDoc.exists) {
+      res.status(404).send({ message: "Recording not found" });
+      return;
+    }
+
+    // Store the recording data to return it later
+    const recordingData = { id: recordingDoc.id, ...recordingDoc.data() };
+
+    // Delete the recording
+    await recordingDocRef.delete();
+
+    // Respond with the deleted recording data
+    res.status(200).send({
+      message: "Recording deleted successfully",
+      recording: recordingData, // Return the deleted recording data
+    });
+  } catch (error) {
+    // Handle any errors
+    console.error("Error deleting recording:", error);
+    res.status(500).send({ message: "Internal Server Error" });
+  }
+});
+
 /* 
     API endpoint to get all users' public recordings
     URL Example: https://us-central1-ragavaniauth.cloudfunctions.net/api/getAllUsersPublicRecordings
