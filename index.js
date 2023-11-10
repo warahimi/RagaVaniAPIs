@@ -674,6 +674,8 @@ app.post("/add_raga_from_ragas_to_user_favorite_raga", async (req, res) => {
       return res.status(400).send("User ID and Raga ID must be provided");
     }
 
+
+    
     // Fetching raga from "ragas" collection
     const ragaRef = admin.firestore().collection("ragas").doc(ragaId);
     const ragaSnap = await ragaRef.get();
@@ -935,15 +937,35 @@ app.post("/user/:userId/favorite_raga_from_ragas/:ragaId", async (req, res) => {
       return res.status(400).send("Both User ID and Raga ID must be provided");
     }
 
+     // Reference to the 'users' collection and specific user document in Firestore
+    const userDocRef = admin.firestore().collection("users").doc(userId);
+
+    // Check if user exists
+    const userDoc = await userDocRef.get();
+    if (!userDoc.exists) {
+      return res.status(404).send("Error: User not found.");
+    }
+
     // Reference to the specific raga in ragas collection
     const ragaRef = admin.firestore().collection("ragas").doc(ragaId);
 
+    const createdRef = userDoc.collection("favorite_ragas").doc(ragaId);
+
     // Check if the raga actually exists in the 'ragas' collection
     const ragaSnapshot = await ragaRef.get();
-    if (!ragaSnapshot.exists) {
-      return res.status(404).send("Specified Raga not found");
+    const createdSnapshop = await createdRef.get();
+    let result;
+    if (ragaSnapshot.exists) {
+      result = ragaRef;
     }
-
+    else if (createdSnapshot.exists) {
+      result = createdRef;
+    }
+    else {
+      // Sending a response with status 404 (Not Found) if raga doesn't exist
+      return res.status(404).send("Raga not found");
+    }
+      
     // Reference to the user's favorite_ragas_from_ragas sub-collection
     const userFavoriteRagasRef = admin
       .firestore()
@@ -953,7 +975,7 @@ app.post("/user/:userId/favorite_raga_from_ragas/:ragaId", async (req, res) => {
 
     // Add the raga reference to the user's favorite_ragas_from_ragas
     await userFavoriteRagasRef.add({
-      ragaReference: ragaRef, // This will store a reference to the raga in ragas collection
+      ragaReference: result, // This will store a reference to the raga in ragas collection
     });
 
     res.status(200).send(`Raga with ID: ${ragaId} added to user's favorites`);
@@ -1195,5 +1217,133 @@ app.get("/versions/:collection_name", async (req, res) => {
     res.status(500).send(`Internal Server Error: ${error}`);
   }
 });
+
+/*
+  API to add a raga from raga database to the user's profile under the favorite_raga_from_ragas sub collection
+  it will store a reference or ragaId to the favorite_raga_from_ragas
+  URL: https://us-central1-ragavaniauth.cloudfunctions.net/api/user/4Ttv7vL2LoaMIvxGVrB5uvWz01t2/favorite_raga_from_ragas/2H2kwuYXl3dY78gh9Obp
+ */
+app.post("/user/:userId/presets", async (req, res) => {
+  try {
+    // Extracting user ID from the URL parameter and preset object from request body
+    const { userId } = req.params;
+    const preset = req.body;
+
+    // Validations: Ensure preset object has essential properties
+    if (!preset.name || !preset.pitch) {
+      return res.status(400).send("Error: Missing essential preset properties.");
+    }
+
+    // Reference to the 'users' collection and specific user document in Firestore
+    const userDocRef = admin.firestore().collection("users").doc(userId);
+
+    // Check if user exists
+    const userDoc = await userDocRef.get();
+    if (!userDoc.exists) {
+      return res.status(404).send("Error: User not found.");
+    }
+
+    // Reference to 'preset' sub-collection for the specified user
+    const presetCollection = userDocRef.collection("presets");
+
+    // Generating a new DocumentReference for our new preset
+    const newPresetRef = presetCollection.doc();
+
+    // Adding the new document ID as a field in the preset object
+    preset.id = newPresetRef.id;
+
+    // Saving the preset data to the new document reference
+    await newPresetRef.set(preset);
+
+    // Responding with the created preset object
+    res.status(201).send(preset);
+  } catch (error) {
+    // Handling errors and responding with status 400 (Bad Request) and error message
+    res.status(400).send(`Error: ${error}`);
+  }
+});
+
+app.delete("/user/:userId/presets/:presetId", async (req, res) => {
+  try {
+    // Extracting user ID and raga ID from the URL parameters
+    const { userId, presetId } = req.params;
+
+    // Reference to the 'users' collection and specific user document in Firestore
+    const userDocRef = admin.firestore().collection("users").doc(userId);
+
+    // Check if user exists
+    const userDoc = await userDocRef.get();
+    if (!userDoc.exists) {
+      return res.status(404).send("Error: User not found.");
+    }
+
+    // Reference to the 'preset' sub-collection and specific raga document for the specified user
+    const presetDocRef = userDocRef.collection("presets").doc(presetId);
+
+    // Check if raga exists
+    const presetDoc = await presetDocRef.get();
+    if (!presetDoc.exists) {
+      return res.status(404).send("Error: Raga not found.");
+    }
+
+    // Delete the specified preset document
+    await presetDocRef.delete();
+
+    // Responding with a success message
+    res
+      .status(200)
+      .send(
+        `Preset with ID ${presetId} successfully deleted from user ${userId}'s presets.`
+      );
+  } catch (error) {
+    // Handling errors and responding with status 400 (Bad Request) and error message
+    res.status(400).send(`Error: ${error}`);
+  }
+});
+
+/*
+    API Endpoint to get all favorite ragas for a specific user
+    URL example: https://us-central1-ragavaniauth.cloudfunctions.net/api/user/UAWYZr8PMuMeuq0wL8pMMUNnwMt2/favorite_ragas
+*/
+app.get("/user/:userId/presets", async (req, res) => {
+  try {
+    const { userId } = req.params; // Extracting userId from request parameters
+
+    if (!userId) {
+      // Sending a response with status 400 (Bad Request) if userId is not provided
+      return res.status(400).send("User ID must be provided");
+    }
+
+    const presetCollection = admin
+      .firestore()
+      .collection("users")
+      .doc(userId)
+      .collection("presets");
+
+    const presetSnapshot = await presetCollection.get();
+
+    if (presetSnapshot.empty) {
+      // Sending a response with status 404 (Not Found) if no favorite ragas found
+      return res
+        .status(404)
+        .send("No presets found for the specified user");
+    }
+
+    const presets = [];
+
+    // Iterating through each document in the ragasSnapshot and adding to the favoriteRagas array
+    presetSnapshot.forEach((doc) => {
+      presets.push({ id: doc.id, ...doc.data() });
+    });
+
+    // Sending back a response with status 200 (OK) and the favorite ragas
+    res.status(200).send(presets);
+  } catch (error) {
+    // Handling errors and sending a response with status 500 (Internal Server Error) and error message
+    console.error("Error:", error);
+    res.status(500).send(`Internal Server Error: ${error}`);
+  }
+});
+
 // exports the APIs to the firestore database
 exports.api = functions.https.onRequest(app);
