@@ -962,7 +962,7 @@ app.post("/user/:userId/favorite_raga_from_ragas/:ragaId", async (req, res) => {
       const createdRef = userDoc.collection("favorite_ragas").doc(ragaId);
       const createdSnapshop = await createdRef.get();
 
-      if createdSnapshop.exists {
+      if (createdSnapshop.exists) {
         result = createdRef;
       }
     }
