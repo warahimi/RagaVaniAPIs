@@ -948,18 +948,23 @@ app.post("/user/:userId/favorite_raga_from_ragas/:ragaId", async (req, res) => {
 
     // Reference to the specific raga in ragas collection
     const ragaRef = admin.firestore().collection("ragas").doc(ragaId);
-
-    const createdRef = userDoc.collection("favorite_ragas").doc(ragaId);
+    const userRagaRef = userDoc.collection("favorite_ragas");
 
     // Check if the raga actually exists in the 'ragas' collection
     const ragaSnapshot = await ragaRef.get();
-    const createdSnapshop = await createdRef.get();
+    const userRagaSnapshot = await userRagaRef.get();
+    
     let result;
     if (ragaSnapshot.exists) {
       result = ragaRef;
     }
-    else if (createdSnapshot.exists) {
-      result = createdRef;
+    else if (userRagaSnapshot.exists) {
+      const createdRef = userDoc.collection("favorite_ragas").doc(ragaId);
+      const createdSnapshop = await createdRef.get();
+
+      if createdSnapshop.exists {
+        result = createdRef;
+      }
     }
     else {
       // Sending a response with status 404 (Not Found) if raga doesn't exist
