@@ -552,7 +552,6 @@ app.delete("/user/:userId/recording/:recordingId", async (req, res) => {
         }
     ]
  */
-
 app.get("/getAllUsersPublicRecordings", async (req, res) => {
   try {
     const usersCollection = admin.firestore().collection("users");
@@ -563,8 +562,9 @@ app.get("/getAllUsersPublicRecordings", async (req, res) => {
     for (const userDoc of usersSnapshot.docs) {
       const userData = userDoc.data();
       const userPublicRecordings = [];
+      const userFavoriteRagas = [];
 
-      // Get user's recordings where is_public=true
+      // Get user's public recordings
       const recordingsSnapshot = await usersCollection
         .doc(userDoc.id)
         .collection("recordings")
@@ -574,34 +574,99 @@ app.get("/getAllUsersPublicRecordings", async (req, res) => {
       // Iterate through each public recording and add it to the userPublicRecordings array
       recordingsSnapshot.forEach((recordingDoc) => {
         const recordingData = recordingDoc.data();
-
-        // Construct a SavedRecording object including the id
-        const savedRecording = {
+        userPublicRecordings.push({
           id: recordingDoc.id,
-          name: recordingData.name,
-          isPublic: recordingData.is_public,
-          URL: recordingData.URL,
-          // Assuming date_created is stored as a string, otherwise convert it to a string
-          date_created: recordingData.date_created,
-          duration: recordingData.duration,
-        };
-
-        userPublicRecordings.push(savedRecording);
+          ...recordingData,
+        });
       });
 
-      // If there are any public recordings, add the user and their recordings to results
-      if (userPublicRecordings.length > 0) {
-        results.push({
-          user: {
-            id: userDoc.id,
-            ...userData,
-          },
-          recordings: userPublicRecordings,
+      // Get user's favorite ragas
+      const ragasSnapshot = await usersCollection
+        .doc(userDoc.id)
+        .collection("favorite_ragas")
+        .get();
+
+      // Iterate through each favorite raga and add it to the userFavoriteRagas array
+      ragasSnapshot.forEach((ragaDoc) => {
+        const ragaData = ragaDoc.data();
+        userFavoriteRagas.push({
+          id: ragaDoc.id,
+          ...ragaData,
         });
-      }
+      });
+
+      // Add the user, their public recordings, and their favorite ragas to results
+      results.push({
+        user: {
+          id: userDoc.id,
+          ...userData,
+        },
+        recordings: userPublicRecordings,
+        favoriteRagas: userFavoriteRagas,
+      });
     }
 
-    // Send response with user data and their public recordings
+    // Send response with user data, their public recordings, and favorite ragas
+    res.status(200).send(results);
+  } catch (error) {
+    console.error("Error:", error);
+    res.status(500).send(`Internal Server Error: ${error}`);
+  }
+});
+
+app.get("/getUsers", async (req, res) => {
+  try {
+    const usersCollection = admin.firestore().collection("users");
+    const usersSnapshot = await usersCollection.get();
+    const results = [];
+
+    // Iterate through each user
+    for (const userDoc of usersSnapshot.docs) {
+      const userData = userDoc.data();
+      const userPublicRecordings = [];
+      const userFavoriteRagas = [];
+
+      // Fetch public recordings
+      const recordingsSnapshot = await usersCollection
+        .doc(userDoc.id)
+        .collection("recordings")
+        .where("is_public", "==", true)
+        .get();
+
+      // Add each public recording to userPublicRecordings array
+      recordingsSnapshot.forEach((recordingDoc) => {
+        userPublicRecordings.push({
+          id: recordingDoc.id,
+          ...recordingDoc.data(),
+        });
+      });
+
+      // Fetch favorite ragas
+      const favoriteRagasSnapshot = await usersCollection
+        .doc(userDoc.id)
+        .collection("favorite_ragas")
+        .get();
+
+      // Add each favorite raga to userFavoriteRagas array
+      favoriteRagasSnapshot.forEach((ragaDoc) => {
+        userFavoriteRagas.push({
+          id: ragaDoc.id,
+          ...ragaDoc.data(),
+        });
+      });
+
+      // Add user, their public recordings, and favorite ragas to results
+      results.push({
+        user: {
+          id: userDoc.id,
+          ...userData,
+        },
+        recordings: userPublicRecordings,
+        favoriteRagas: userFavoriteRagas,
+      });
+    }
+
+    // Send response with user data, public recordings, and favorite ragas
     res.status(200).send(results);
   } catch (error) {
     // Handling errors and sending a response with status 500 (Internal Server Error) and error message
@@ -674,8 +739,6 @@ app.post("/add_raga_from_ragas_to_user_favorite_raga", async (req, res) => {
       return res.status(400).send("User ID and Raga ID must be provided");
     }
 
-
-    
     // Fetching raga from "ragas" collection
     const ragaRef = admin.firestore().collection("ragas").doc(ragaId);
     const ragaSnap = await ragaRef.get();
@@ -937,7 +1000,7 @@ app.post("/user/:userId/favorite_raga_from_ragas/:ragaId", async (req, res) => {
       return res.status(400).send("Both User ID and Raga ID must be provided");
     }
 
-     // Reference to the 'users' collection and specific user document in Firestore
+    // Reference to the 'users' collection and specific user document in Firestore
     const userDocRef = admin.firestore().collection("users").doc(userId);
 
     // Check if user exists
@@ -953,24 +1016,22 @@ app.post("/user/:userId/favorite_raga_from_ragas/:ragaId", async (req, res) => {
     // Check if the raga actually exists in the 'ragas' collection
     const ragaSnapshot = await ragaRef.get();
     const userRagaSnapshot = await userRagaRef.get();
-    
+
     let result;
     if (ragaSnapshot.exists) {
       result = ragaRef;
-    }
-    else if (userRagaSnapshot.exists) {
+    } else if (userRagaSnapshot.exists) {
       const createdRef = userDoc.collection("favorite_ragas").doc(ragaId);
       const createdSnapshop = await createdRef.get();
 
-      if createdSnapshop.exists {
+      if (createdSnapshop.exists) {
         result = createdRef;
       }
-    }
-    else {
+    } else {
       // Sending a response with status 404 (Not Found) if raga doesn't exist
       return res.status(404).send("Raga not found");
     }
-      
+
     // Reference to the user's favorite_ragas_from_ragas sub-collection
     const userFavoriteRagasRef = admin
       .firestore()
@@ -1236,7 +1297,9 @@ app.post("/user/:userId/presets", async (req, res) => {
 
     // Validations: Ensure preset object has essential properties
     if (!preset.name || !preset.pitch) {
-      return res.status(400).send("Error: Missing essential preset properties.");
+      return res
+        .status(400)
+        .send("Error: Missing essential preset properties.");
     }
 
     // Reference to the 'users' collection and specific user document in Firestore
@@ -1329,9 +1392,7 @@ app.get("/user/:userId/presets", async (req, res) => {
 
     if (presetSnapshot.empty) {
       // Sending a response with status 404 (Not Found) if no favorite ragas found
-      return res
-        .status(404)
-        .send("No presets found for the specified user");
+      return res.status(404).send("No presets found for the specified user");
     }
 
     const presets = [];
