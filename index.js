@@ -968,58 +968,42 @@ app.get("/getMyPrivateRecordings/:userId", async (req, res) => {
   it will store a reference or ragaId to the favorite_raga_from_ragas
   URL: https://us-central1-ragavaniauth.cloudfunctions.net/api/user/4Ttv7vL2LoaMIvxGVrB5uvWz01t2/favorite_raga_from_ragas/2H2kwuYXl3dY78gh9Obp
  */
+
 app.post("/user/:userId/favorite_raga_from_ragas/:ragaId", async (req, res) => {
   try {
     const { userId, ragaId } = req.params;
 
     if (!userId || !ragaId) {
-      // Send a 400 Bad Request if either userId or ragaId isn't provided
       return res.status(400).send("Both User ID and Raga ID must be provided");
     }
 
-    // Reference to the 'users' collection and specific user document in Firestore
     const userDocRef = admin.firestore().collection("users").doc(userId);
-
-    // Check if user exists
     const userDoc = await userDocRef.get();
     if (!userDoc.exists) {
       return res.status(404).send("Error: User not found.");
     }
 
-    // Reference to the specific raga in ragas collection
     const ragaRef = admin.firestore().collection("ragas").doc(ragaId);
-    const userRagaRef = userDoc.collection("favorite_ragas");
-
-    // Check if the raga actually exists in the 'ragas' collection
     const ragaSnapshot = await ragaRef.get();
-    const userRagaSnapshot = await userRagaRef.get();
-
-    let result;
-    if (ragaSnapshot.exists) {
-      result = ragaRef;
-    } else if (userRagaSnapshot.exists) {
-      const createdRef = userDoc.collection("favorite_ragas").doc(ragaId);
-      const createdSnapshop = await createdRef.get();
-
-      if (createdSnapshop.exists) {
-        result = createdRef;
-      }
-    } else {
-      // Sending a response with status 404 (Not Found) if raga doesn't exist
+    if (!ragaSnapshot.exists) {
       return res.status(404).send("Raga not found");
     }
 
-    // Reference to the user's favorite_ragas_from_ragas sub-collection
-    const userFavoriteRagasRef = admin
-      .firestore()
-      .collection("users")
-      .doc(userId)
-      .collection("favorite_ragas_from_ragas");
+    const userFavoriteRagasRef = userDocRef.collection(
+      "favorite_ragas_from_ragas"
+    );
+    const newFavoriteRagaRef = userFavoriteRagasRef.doc(); // Create a new document reference
 
-    // Add the raga reference to the user's favorite_ragas_from_ragas
-    await userFavoriteRagasRef.add({
-      ragaReference: result, // This will store a reference to the raga in ragas collection
-    });
+    // Prepare data to be added
+    const favoriteRagaData = {
+      id: newFavoriteRagaRef.id, // ID of the new document
+      userId: userId, // User ID
+      ragaId: ragaId, // Raga ID, comes from "ragas" collection
+      ragaReference: ragaRef, // Reference to the raga document
+    };
+
+    // Add the data to Firestore
+    await newFavoriteRagaRef.set(favoriteRagaData);
 
     res.status(200).send(`Raga with ID: ${ragaId} added to user's favorites`);
   } catch (error) {
