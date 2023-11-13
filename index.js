@@ -345,9 +345,10 @@ app.post("/user/:userId/recording", async (req, res) => {
     // Create a new recording in the "recordings" sub-collection
     const newRecordingDocRef = userDocRef.collection("recordings").doc();
 
-    // Prepare the recording data, including the new fields
+    // Prepare the recording data,
     const recordingData = {
       id: newRecordingDocRef.id,
+      userId, // Add the userId field
       name,
       is_public,
       URL,
@@ -378,7 +379,8 @@ app.post("/user/:userId/recording", async (req, res) => {
         "inputs": [1, 2, 3, 4, 5, 6, 7],
         "vadi": "Ma",
         "samvadi": "Sa",
-        "description": "Raga Bhairavi is often referred to as the queen of ragas..."
+        "description": "Raga Bhairavi is often referred to as the queen of ragas...",
+        "is_public": ture
     }
  */
 
@@ -386,10 +388,11 @@ app.post("/user/:userId/favorite_raga", async (req, res) => {
   try {
     // Extracting user ID from the URL parameter and raga object from request body
     const { userId } = req.params;
-    const raga = req.body;
+    let { name, category, inputs, vadi, samvadi, description, is_public } =
+      req.body;
 
     // Validations: Ensure raga object has essential properties
-    if (!raga.name || !raga.category || !raga.inputs) {
+    if (!name || !category || !inputs || is_public === undefined) {
       return res.status(400).send("Error: Missing essential raga properties.");
     }
 
@@ -402,65 +405,35 @@ app.post("/user/:userId/favorite_raga", async (req, res) => {
       return res.status(404).send("Error: User not found.");
     }
 
-    // Reference to 'favorite_raga' sub-collection for the specified user
+    // Reference to 'favorite_ragas' sub-collection for the specified user
     const favoriteRagaCollection = userDocRef.collection("favorite_ragas");
 
     // Generating a new DocumentReference for our new raga
     const newRagaRef = favoriteRagaCollection.doc();
 
-    // Adding the new document ID as a field in the raga object
-    raga.id = newRagaRef.id;
+    // Constructing raga data including userId and is_public
+    const ragaData = {
+      id: newRagaRef.id,
+      userId,
+      name,
+      category,
+      inputs,
+      vadi,
+      samvadi,
+      description,
+      is_public,
+    };
 
     // Saving the raga data to the new document reference
-    await newRagaRef.set(raga);
+    await newRagaRef.set(ragaData);
 
     // Responding with the created raga object
-    res.status(201).send(raga);
+    res
+      .status(201)
+      .send({ message: "Raga added successfully", raga: ragaData });
   } catch (error) {
     // Handling errors and responding with status 400 (Bad Request) and error message
     res.status(400).send(`Error: ${error}`);
-  }
-});
-
-/**
-  API end point to delete a recording from user's profile "recordings" sub collection 
-  it also returns the deleted recording object
- */
-app.delete("/user/:userId/recording/:recordingId", async (req, res) => {
-  try {
-    // Extract userId and recordingId from the request parameters
-    const { userId, recordingId } = req.params;
-
-    // Access the Firestore users collection and target the specific recording
-    const recordingDocRef = admin
-      .firestore()
-      .collection("users")
-      .doc(userId)
-      .collection("recordings")
-      .doc(recordingId);
-
-    // Check for the existence of the recording document
-    const recordingDoc = await recordingDocRef.get();
-    if (!recordingDoc.exists) {
-      res.status(404).send({ message: "Recording not found" });
-      return;
-    }
-
-    // Store the recording data to return it later
-    const recordingData = { id: recordingDoc.id, ...recordingDoc.data() };
-
-    // Delete the recording
-    await recordingDocRef.delete();
-
-    // Respond with the deleted recording data
-    res.status(200).send({
-      message: "Recording deleted successfully",
-      recording: recordingData, // Return the deleted recording data
-    });
-  } catch (error) {
-    // Handle any errors
-    console.error("Error deleting recording:", error);
-    res.status(500).send({ message: "Internal Server Error" });
   }
 });
 
@@ -614,6 +587,10 @@ app.get("/getAllUsersPublicRecordings", async (req, res) => {
   }
 });
 
+/*
+  API end point to return all the users information along with the list of their public recording and
+  list of favorite/created ragas. 
+*/
 app.get("/getUsers", async (req, res) => {
   try {
     const usersCollection = admin.firestore().collection("users");
