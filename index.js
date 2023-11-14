@@ -30,6 +30,7 @@ app.get("/", (req, res) => {
     .send("Testing RagaVani root directory APIs. Created by Wahid Rahimi");
 });
 
+// ------------------------------------------------- rgas collection --------------------------------------------------
 /*
     POST endpoint to create a new raga
     URL Example: http://127.0.0.1:5001/ragavaniauth/us-central1/api/ragas
@@ -225,6 +226,8 @@ app.delete("/ragas/:id", async (req, res) => {
   }
 });
 
+// ------------------------------------------------- SignUp --------------------------------------------------
+
 /*
     End point to sign up
   
@@ -294,6 +297,8 @@ app.get("/user/:userId", async (req, res) => {
     res.status(500).send(`Internal Server Error: ${error.message}`);
   }
 });
+
+// ------------------------------------------------- Recording --------------------------------------------------
 
 /**
  * POST endpoint to add a recording to a specified user's sub-collection "recordings".
@@ -370,160 +375,10 @@ app.post("/user/:userId/recording", async (req, res) => {
   }
 });
 
-/*  POST endpoint to add a favorite raga for a specific user
-    URL Example: https://us-central1-ragavaniauth.cloudfunctions.net/api/user/zU8RUJx6kOgLO1gjpa8sGfJJ6Ut2/favorite_raga
-    JASON FILE Example Passed to this end point:
-    {
-        "category": "Melodic3",
-        "name": "Raga Bhairavi",
-        "inputs": [1, 2, 3, 4, 5, 6, 7],
-        "vadi": "Ma",
-        "samvadi": "Sa",
-        "description": "Raga Bhairavi is often referred to as the queen of ragas...",
-        "is_public": ture
-    }
- */
-
-app.post("/user/:userId/favorite_raga", async (req, res) => {
-  try {
-    // Extracting user ID from the URL parameter and raga object from request body
-    const { userId } = req.params;
-    let { name, category, inputs, vadi, samvadi, description, is_public } =
-      req.body;
-
-    // Validations: Ensure raga object has essential properties
-    if (!name || !category || !inputs || is_public === undefined) {
-      return res.status(400).send("Error: Missing essential raga properties.");
-    }
-
-    // Reference to the 'users' collection and specific user document in Firestore
-    const userDocRef = admin.firestore().collection("users").doc(userId);
-
-    // Check if user exists
-    const userDoc = await userDocRef.get();
-    if (!userDoc.exists) {
-      return res.status(404).send("Error: User not found.");
-    }
-
-    // Reference to 'favorite_ragas' sub-collection for the specified user
-    const favoriteRagaCollection = userDocRef.collection("favorite_ragas");
-
-    // Generating a new DocumentReference for our new raga
-    const newRagaRef = favoriteRagaCollection.doc();
-
-    // Constructing raga data including userId and is_public
-    const ragaData = {
-      id: newRagaRef.id,
-      userId,
-      name,
-      category,
-      inputs,
-      vadi,
-      samvadi,
-      description,
-      is_public,
-    };
-
-    // Saving the raga data to the new document reference
-    await newRagaRef.set(ragaData);
-
-    // Responding with the created raga object
-    res
-      .status(201)
-      .send({ message: "Raga added successfully", raga: ragaData });
-  } catch (error) {
-    // Handling errors and responding with status 400 (Bad Request) and error message
-    res.status(400).send(`Error: ${error}`);
-  }
-});
-
 /* 
     API endpoint to get all users' public recordings
     URL Example: https://us-central1-ragavaniauth.cloudfunctions.net/api/getAllUsersPublicRecordings
 
-    Will retrun the following JASON file format
-    [
-        {
-            "user": {
-                "id": "UAWYZr8PMuMeuq0wL8pMMUNnwMt2",
-                "user_id": "UAWYZr8PMuMeuq0wL8pMMUNnwMt2",
-                "last_name": "Rahimi",
-                "first_name": "Wahid",
-                "email": "wahid@gmail.com",
-                "date_created": {
-                    "_seconds": 1696886994,
-                    "_nanoseconds": 654000000
-                }
-            },
-            "recordings": [
-                {
-                    "id": "6m4pggl9tdHsxoNtxilf",
-                    "date_created": {
-                        "_seconds": 1696893187,
-                        "_nanoseconds": 505000000
-                    },
-                    "name": "My Recording",
-                    "is_public": true,
-                    "URL": "https://example.com/recording.mp3"
-                },
-                {
-                    "id": "M7LbkxP6Aod9CSi5Sbu6",
-                    "date_created": {
-                        "_seconds": 1696893298,
-                        "_nanoseconds": 832000000
-                    },
-                    "name": "My Recording 3",
-                    "is_public": true,
-                    "URL": "https://example.com/recording3.mp3"
-                }
-            ]
-        },
-        {
-            "user": {
-                "id": "zU8RUJx6kOgLO1gjpa8sGfJJ6Ut2",
-                "user_id": "zU8RUJx6kOgLO1gjpa8sGfJJ6Ut2",
-                "last_name": "User",
-                "first_name": "Test",
-                "email": "testuser44@example.com",
-                "date_created": {
-                    "_seconds": 1696885928,
-                    "_nanoseconds": 116000000
-                }
-            },
-            "recordings": [
-                {
-                    "id": "6TJ4iWhzHLmZzVMQuGtg",
-                    "date_created": {
-                        "_seconds": 1696893456,
-                        "_nanoseconds": 755000000
-                    },
-                    "name": "My Recording 4",
-                    "is_public": true,
-                    "URL": "https://example.com/recording4.mp3"
-                },
-                {
-                    "id": "oKUWCPOvZs2nposU7W6T",
-                    "date_created": {
-                        "_seconds": 1696893388,
-                        "_nanoseconds": 486000000
-                    },
-                    "name": "My Recording 1",
-                    "is_public": true,
-                    "URL": "https://example.com/recording1.mp3"
-                },
-                {
-                    "id": "sYWrASdfG9UkjYTGzyDZ",
-                    "date_created": {
-                        "_seconds": 1696893406,
-                        "_nanoseconds": 889000000
-                    },
-                    "name": "My Recording 1",
-                    "is_public": true,
-                    "URL": "https://example.com/recording1.mp3"
-                }
-            ]
-        }
-    ]
  */
 app.get("/getAllUsersPublicRecordings", async (req, res) => {
   try {
@@ -653,6 +508,238 @@ app.get("/getUsers", async (req, res) => {
 });
 
 /*
+    API endpoint to get all recordings (public and private) of a specific user.
+    URL Example: https://us-central1-ragavaniauth.cloudfunctions.net/api/getAllMyRecordings/zxKAloMo2QUr0pnGupUYsBPPR382
+    Returned JSON File format:
+    
+*/
+app.get("/getAllMyRecordings/:userId", async (req, res) => {
+  try {
+    // Extracting userId from the path parameters
+    const { userId } = req.params;
+
+    // Reference to the user's recordings sub-collection in Firestore
+    const recordingsRef = admin
+      .firestore()
+      .collection("users")
+      .doc(userId)
+      .collection("recordings");
+
+    // Querying for all recordings without applying any filtering condition
+    const snapshot = await recordingsRef.get();
+
+    if (snapshot.empty) {
+      // No recordings found
+      return res.status(404).send({ message: "No recordings found" });
+    }
+
+    // Building the response object
+    const recordings = [];
+    snapshot.forEach((doc) => {
+      // Extract recording data
+      const recordingData = doc.data();
+
+      // Construct SavedRecording object including the id
+      const savedRecording = {
+        id: doc.id,
+        name: recordingData.name,
+        isPublic: recordingData.is_public,
+        URL: recordingData.URL,
+        // Assuming date_created is stored as a string, otherwise convert it to a string
+        date_created: recordingData.date_created,
+        duration: recordingData.duration,
+      };
+
+      recordings.push(savedRecording);
+    });
+
+    // Responding with status 200 (OK) and the recordings array
+    return res.status(200).send(recordings);
+  } catch (error) {
+    // Handling errors and responding with status 500 (Internal Server Error) and error message
+    console.error("Error fetching recordings:", error);
+    return res.status(500).send({ message: "Internal Server Error" });
+  }
+});
+
+/*
+    API endpoint to get a specific user's public recordings
+    URL Example: https://us-central1-ragavaniauth.cloudfunctions.net/api/getMyPublicRecordings/Nq4vF8niCBf0AFHcnwZO9rQDZYm2
+    Returned JASON File format
+ */
+
+app.get("/getMyPublicRecordings/:userId", async (req, res) => {
+  try {
+    // Extracting userId from the path parameters
+    const { userId } = req.params;
+
+    // Reference to the user's recordings sub-collection in Firestore
+    const recordingsRef = admin
+      .firestore()
+      .collection("users")
+      .doc(userId)
+      .collection("recordings");
+
+    // Querying for all public recordings
+    const snapshot = await recordingsRef.where("is_public", "==", true).get();
+
+    if (snapshot.empty) {
+      // No public recordings found
+      return res.status(404).send({ message: "No public recordings found" });
+    }
+
+    // Building the response object
+    const recordings = [];
+    snapshot.forEach((doc) => {
+      // Extract recording data
+      const recordingData = doc.data();
+
+      // Construct SavedRecording object including the id
+      const savedRecording = {
+        id: doc.id,
+        name: recordingData.name,
+        isPublic: recordingData.is_public,
+        URL: recordingData.URL,
+        // Assuming date_created is stored as a string, otherwise convert it to a string
+        date_created: recordingData.date_created,
+        duration: recordingData.duration,
+      };
+
+      recordings.push(savedRecording);
+    });
+
+    // Responding with status 200 (OK) and the recordings array
+    return res.status(200).send(recordings);
+  } catch (error) {
+    // Handling errors and responding with status 500 (Internal Server Error) and error message
+    console.error("Error fetching public recordings:", error);
+    return res.status(500).send({ message: "Internal Server Error" });
+  }
+});
+
+/*
+    API end point to get specific user's all private recordings
+    URL Example: https://us-central1-ragavaniauth.cloudfunctions.net/api/getMyPrivateRecordings/Nq4vF8niCBf0AFHcnwZO9rQDZYm2
+  Returned Jason file format:
+ 
+*/
+app.get("/getMyPrivateRecordings/:userId", async (req, res) => {
+  try {
+    // Extracting userId from the path parameters
+    const { userId } = req.params;
+
+    // Reference to the user's recordings sub-collection in Firestore
+    const recordingsRef = admin
+      .firestore()
+      .collection("users")
+      .doc(userId)
+      .collection("recordings");
+
+    // Querying for all private recordings (where is_public is false)
+    const snapshot = await recordingsRef.where("is_public", "==", false).get();
+
+    if (snapshot.empty) {
+      // No private recordings found
+      return res.status(404).send({ message: "No private recordings found" });
+    }
+
+    // Building the response object
+    const recordings = [];
+    snapshot.forEach((doc) => {
+      // Constructing each recording's data, including the new fields
+      const recordingData = doc.data();
+
+      const savedRecording = {
+        id: doc.id,
+        name: recordingData.name,
+        isPublic: recordingData.is_public,
+        URL: recordingData.URL,
+        date_created: recordingData.date_created, // Stored as a string
+        duration: recordingData.duration,
+      };
+
+      recordings.push(savedRecording);
+    });
+
+    // Responding with status 200 (OK) and the recordings array
+    return res.status(200).send(recordings);
+  } catch (error) {
+    // Handling errors and responding with status 500 (Internal Server Error) and error message
+    console.error("Error fetching private recordings:", error);
+    return res.status(500).send({ message: "Internal Server Error" });
+  }
+});
+
+// ------------------------------------------------- favorite_ragas / created ragas --------------------------------------------------
+
+/*  POST endpoint to add a favorite raga for a specific user
+    URL Example: https://us-central1-ragavaniauth.cloudfunctions.net/api/user/zU8RUJx6kOgLO1gjpa8sGfJJ6Ut2/favorite_raga
+    JASON FILE Example Passed to this end point:
+    {
+        "category": "Melodic3",
+        "name": "Raga Bhairavi",
+        "inputs": [1, 2, 3, 4, 5, 6, 7],
+        "vadi": "Ma",
+        "samvadi": "Sa",
+        "description": "Raga Bhairavi is often referred to as the queen of ragas...",
+        "is_public": ture
+    }
+ */
+
+app.post("/user/:userId/favorite_raga", async (req, res) => {
+  try {
+    // Extracting user ID from the URL parameter and raga object from request body
+    const { userId } = req.params;
+    let { name, category, inputs, vadi, samvadi, description, is_public } =
+      req.body;
+
+    // Validations: Ensure raga object has essential properties
+    if (!name || !category || !inputs || is_public === undefined) {
+      return res.status(400).send("Error: Missing essential raga properties.");
+    }
+
+    // Reference to the 'users' collection and specific user document in Firestore
+    const userDocRef = admin.firestore().collection("users").doc(userId);
+
+    // Check if user exists
+    const userDoc = await userDocRef.get();
+    if (!userDoc.exists) {
+      return res.status(404).send("Error: User not found.");
+    }
+
+    // Reference to 'favorite_ragas' sub-collection for the specified user
+    const favoriteRagaCollection = userDocRef.collection("favorite_ragas");
+
+    // Generating a new DocumentReference for our new raga
+    const newRagaRef = favoriteRagaCollection.doc();
+
+    // Constructing raga data including userId and is_public
+    const ragaData = {
+      id: newRagaRef.id,
+      userId,
+      name,
+      category,
+      inputs,
+      vadi,
+      samvadi,
+      description,
+      is_public,
+    };
+
+    // Saving the raga data to the new document reference
+    await newRagaRef.set(ragaData);
+
+    // Responding with the created raga object
+    res
+      .status(201)
+      .send({ message: "Raga added successfully", raga: ragaData });
+  } catch (error) {
+    // Handling errors and responding with status 400 (Bad Request) and error message
+    res.status(400).send(`Error: ${error}`);
+  }
+});
+
+/*
     API Endpoint to get all favorite ragas for a specific user
     URL example: https://us-central1-ragavaniauth.cloudfunctions.net/api/user/UAWYZr8PMuMeuq0wL8pMMUNnwMt2/favorite_ragas
 */
@@ -747,221 +834,47 @@ app.post("/add_raga_from_ragas_to_user_favorite_raga", async (req, res) => {
 });
 
 /*
-    API endpoint to get all recordings (public and private) of a specific user.
-    URL Example: https://us-central1-ragavaniauth.cloudfunctions.net/api/getAllMyRecordings/zxKAloMo2QUr0pnGupUYsBPPR382
-    Returned JSON File format:
-    [
-      {
-          "id": "FMxv8F0BWuA0Ggvnl137",
-          "date_created": {
-              "_seconds": 1696990154,
-              "_nanoseconds": 949000000
-          },
-          "name": "Yyyyyy",
-          "is_public": true,
-          "URL": "Yyyyyyy"
-      },
-      {
-          "id": "ipG6I1SE3JABeuRik5nQ",
-          "date_created": {
-              "_seconds": 1696990143,
-              "_nanoseconds": 161000000
-          },
-          "name": "Sdfsd",
-          "is_public": false,
-          "URL": "Sdfdsf"
-      }
-  ]
+  Delete a raga from user's "favorite_ragas" sub collection
 */
-app.get("/getAllMyRecordings/:userId", async (req, res) => {
+app.delete("/user/:userId/favorite_raga/:ragaId", async (req, res) => {
   try {
-    // Extracting userId from the path parameters
-    const { userId } = req.params;
+    // Extracting user ID and raga ID from the URL parameters
+    const { userId, ragaId } = req.params;
 
-    // Reference to the user's recordings sub-collection in Firestore
-    const recordingsRef = admin
-      .firestore()
-      .collection("users")
-      .doc(userId)
-      .collection("recordings");
+    // Reference to the 'users' collection and specific user document in Firestore
+    const userDocRef = admin.firestore().collection("users").doc(userId);
 
-    // Querying for all recordings without applying any filtering condition
-    const snapshot = await recordingsRef.get();
-
-    if (snapshot.empty) {
-      // No recordings found
-      return res.status(404).send({ message: "No recordings found" });
+    // Check if user exists
+    const userDoc = await userDocRef.get();
+    if (!userDoc.exists) {
+      return res.status(404).send("Error: User not found.");
     }
 
-    // Building the response object
-    const recordings = [];
-    snapshot.forEach((doc) => {
-      // Extract recording data
-      const recordingData = doc.data();
+    // Reference to the 'favorite_ragas' sub-collection and specific raga document for the specified user
+    const ragaDocRef = userDocRef.collection("favorite_ragas").doc(ragaId);
 
-      // Construct SavedRecording object including the id
-      const savedRecording = {
-        id: doc.id,
-        name: recordingData.name,
-        isPublic: recordingData.is_public,
-        URL: recordingData.URL,
-        // Assuming date_created is stored as a string, otherwise convert it to a string
-        date_created: recordingData.date_created,
-        duration: recordingData.duration,
-      };
+    // Check if raga exists
+    const ragaDoc = await ragaDocRef.get();
+    if (!ragaDoc.exists) {
+      return res.status(404).send("Error: Raga not found.");
+    }
 
-      recordings.push(savedRecording);
-    });
+    // Delete the specified raga document
+    await ragaDocRef.delete();
 
-    // Responding with status 200 (OK) and the recordings array
-    return res.status(200).send(recordings);
+    // Responding with a success message
+    res
+      .status(200)
+      .send(
+        `Raga with ID ${ragaId} successfully deleted from user ${userId}'s favorites.`
+      );
   } catch (error) {
-    // Handling errors and responding with status 500 (Internal Server Error) and error message
-    console.error("Error fetching recordings:", error);
-    return res.status(500).send({ message: "Internal Server Error" });
+    // Handling errors and responding with status 400 (Bad Request) and error message
+    res.status(400).send(`Error: ${error}`);
   }
 });
 
-/*
-    API endpoint to get a specific user's public recordings
-    URL Example: https://us-central1-ragavaniauth.cloudfunctions.net/api/getMyPublicRecordings/Nq4vF8niCBf0AFHcnwZO9rQDZYm2
-    Returned JASON File format
-    [
-        {
-            "id": "6m4pggl9tdHsxoNtxilf",
-            "date_created": {
-                "_seconds": 1696893187,
-                "_nanoseconds": 505000000
-            },
-            "name": "My Recording",
-            "is_public": true,
-            "URL": "https://example.com/recording.mp3"
-        },
-        {
-            "id": "M7LbkxP6Aod9CSi5Sbu6",
-            "date_created": {
-                "_seconds": 1696893298,
-                "_nanoseconds": 832000000
-            },
-            "name": "My Recording 3",
-            "is_public": true,
-            "URL": "https://example.com/recording3.mp3"
-        }
-    ]
- */
-
-app.get("/getMyPublicRecordings/:userId", async (req, res) => {
-  try {
-    // Extracting userId from the path parameters
-    const { userId } = req.params;
-
-    // Reference to the user's recordings sub-collection in Firestore
-    const recordingsRef = admin
-      .firestore()
-      .collection("users")
-      .doc(userId)
-      .collection("recordings");
-
-    // Querying for all public recordings
-    const snapshot = await recordingsRef.where("is_public", "==", true).get();
-
-    if (snapshot.empty) {
-      // No public recordings found
-      return res.status(404).send({ message: "No public recordings found" });
-    }
-
-    // Building the response object
-    const recordings = [];
-    snapshot.forEach((doc) => {
-      // Extract recording data
-      const recordingData = doc.data();
-
-      // Construct SavedRecording object including the id
-      const savedRecording = {
-        id: doc.id,
-        name: recordingData.name,
-        isPublic: recordingData.is_public,
-        URL: recordingData.URL,
-        // Assuming date_created is stored as a string, otherwise convert it to a string
-        date_created: recordingData.date_created,
-        duration: recordingData.duration,
-      };
-
-      recordings.push(savedRecording);
-    });
-
-    // Responding with status 200 (OK) and the recordings array
-    return res.status(200).send(recordings);
-  } catch (error) {
-    // Handling errors and responding with status 500 (Internal Server Error) and error message
-    console.error("Error fetching public recordings:", error);
-    return res.status(500).send({ message: "Internal Server Error" });
-  }
-});
-
-/*
-    API end point to get specific user's all private recordings
-    URL Example: https://us-central1-ragavaniauth.cloudfunctions.net/api/getMyPrivateRecordings/Nq4vF8niCBf0AFHcnwZO9rQDZYm2
-  Returned Jason file format:
-  [
-    {
-        "id": "oRuHCtnxPITQW16juzQs",
-        "date_created": {
-            "_seconds": 1696893234,
-            "_nanoseconds": 406000000
-        },
-        "name": "My Recording 2",
-        "is_public": false,
-        "URL": "https://example.com/recording2.mp3"
-    }
-]
-*/
-app.get("/getMyPrivateRecordings/:userId", async (req, res) => {
-  try {
-    // Extracting userId from the path parameters
-    const { userId } = req.params;
-
-    // Reference to the user's recordings sub-collection in Firestore
-    const recordingsRef = admin
-      .firestore()
-      .collection("users")
-      .doc(userId)
-      .collection("recordings");
-
-    // Querying for all private recordings (where is_public is false)
-    const snapshot = await recordingsRef.where("is_public", "==", false).get();
-
-    if (snapshot.empty) {
-      // No private recordings found
-      return res.status(404).send({ message: "No private recordings found" });
-    }
-
-    // Building the response object
-    const recordings = [];
-    snapshot.forEach((doc) => {
-      // Constructing each recording's data, including the new fields
-      const recordingData = doc.data();
-
-      const savedRecording = {
-        id: doc.id,
-        name: recordingData.name,
-        isPublic: recordingData.is_public,
-        URL: recordingData.URL,
-        date_created: recordingData.date_created, // Stored as a string
-        duration: recordingData.duration,
-      };
-
-      recordings.push(savedRecording);
-    });
-
-    // Responding with status 200 (OK) and the recordings array
-    return res.status(200).send(recordings);
-  } catch (error) {
-    // Handling errors and responding with status 500 (Internal Server Error) and error message
-    console.error("Error fetching private recordings:", error);
-    return res.status(500).send({ message: "Internal Server Error" });
-  }
-});
+// ------------------------------------------------- favorite_raga_from_ragas / saved ragas --------------------------------------------------
 
 /*
   API to add a raga from raga database to the user's profile under the favorite_raga_from_ragas sub collection
@@ -1009,44 +922,6 @@ app.post("/user/:userId/favorite_raga_from_ragas/:ragaId", async (req, res) => {
   } catch (error) {
     console.error("Error:", error);
     res.status(500).send(`Internal Server Error: ${error}`);
-  }
-});
-
-app.delete("/user/:userId/favorite_raga/:ragaId", async (req, res) => {
-  try {
-    // Extracting user ID and raga ID from the URL parameters
-    const { userId, ragaId } = req.params;
-
-    // Reference to the 'users' collection and specific user document in Firestore
-    const userDocRef = admin.firestore().collection("users").doc(userId);
-
-    // Check if user exists
-    const userDoc = await userDocRef.get();
-    if (!userDoc.exists) {
-      return res.status(404).send("Error: User not found.");
-    }
-
-    // Reference to the 'favorite_ragas' sub-collection and specific raga document for the specified user
-    const ragaDocRef = userDocRef.collection("favorite_ragas").doc(ragaId);
-
-    // Check if raga exists
-    const ragaDoc = await ragaDocRef.get();
-    if (!ragaDoc.exists) {
-      return res.status(404).send("Error: Raga not found.");
-    }
-
-    // Delete the specified raga document
-    await ragaDocRef.delete();
-
-    // Responding with a success message
-    res
-      .status(200)
-      .send(
-        `Raga with ID ${ragaId} successfully deleted from user ${userId}'s favorites.`
-      );
-  } catch (error) {
-    // Handling errors and responding with status 400 (Bad Request) and error message
-    res.status(400).send(`Error: ${error}`);
   }
 });
 
@@ -1144,6 +1019,8 @@ app.delete(
     }
   }
 );
+
+// ------------------------------------------------- Version --------------------------------------------------
 
 // add a version document
 /*
@@ -1245,11 +1122,8 @@ app.get("/versions/:collection_name", async (req, res) => {
   }
 });
 
-/*
-  API to add a raga from raga database to the user's profile under the favorite_raga_from_ragas sub collection
-  it will store a reference or ragaId to the favorite_raga_from_ragas
-  URL: https://us-central1-ragavaniauth.cloudfunctions.net/api/user/4Ttv7vL2LoaMIvxGVrB5uvWz01t2/favorite_raga_from_ragas/2H2kwuYXl3dY78gh9Obp
- */
+// ------------------------------------------------- Presets --------------------------------------------------
+
 app.post("/user/:userId/presets", async (req, res) => {
   try {
     // Extracting user ID from the URL parameter and preset object from request body
@@ -1330,10 +1204,6 @@ app.delete("/user/:userId/presets/:presetId", async (req, res) => {
   }
 });
 
-/*
-    API Endpoint to get all favorite ragas for a specific user
-    URL example: https://us-central1-ragavaniauth.cloudfunctions.net/api/user/UAWYZr8PMuMeuq0wL8pMMUNnwMt2/favorite_ragas
-*/
 app.get("/user/:userId/presets", async (req, res) => {
   try {
     const { userId } = req.params; // Extracting userId from request parameters
