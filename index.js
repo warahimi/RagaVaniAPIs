@@ -884,14 +884,15 @@ app.delete("/user/:userId/favorite_raga/:ragaId", async (req, res) => {
 
 app.post("/user/:userId/favorite_raga_from_ragas/:destId/:ragaId", async (req, res) => {
   try {
-    const { userId, ragaId } = req.params;
+    const { userId, destId, ragaId } = req.params;
 
-    if (!userId || !ragaId) {
+    if (!userId || !ragaId || !destId) {
       return res.status(400).send("Both User ID and Raga ID must be provided");
     }
 
     const userDocRef = admin.firestore().collection("users").doc(userId);
     const userDoc = await userDocRef.get();
+    
     if (!userDoc.exists) {
       return res.status(404).send("Error: User not found.");
     }
