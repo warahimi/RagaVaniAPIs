@@ -882,7 +882,7 @@ app.delete("/user/:userId/favorite_raga/:ragaId", async (req, res) => {
   URL: https://us-central1-ragavaniauth.cloudfunctions.net/api/user/4Ttv7vL2LoaMIvxGVrB5uvWz01t2/favorite_raga_from_ragas/2H2kwuYXl3dY78gh9Obp
  */
 
-app.post("/user/:userId/favorite_raga_from_ragas/:ragaId", async (req, res) => {
+app.post("/user/:userId/favorite_raga_from_ragas/:destId/:ragaId", async (req, res) => {
   try {
     const { userId, ragaId } = req.params;
 
@@ -896,28 +896,69 @@ app.post("/user/:userId/favorite_raga_from_ragas/:ragaId", async (req, res) => {
       return res.status(404).send("Error: User not found.");
     }
 
-    const ragaRef = admin.firestore().collection("ragas").doc(ragaId);
-    const ragaSnapshot = await ragaRef.get();
-    if (!ragaSnapshot.exists) {
-      return res.status(404).send("Raga not found");
+    if (destId == "Raga DB") {
+      // get reference to raga database
+      const ragaRef = admin.firestore().collection("ragas").doc(ragaId);
+      const ragaSnapshot = await ragaRef.get();
+      if (!ragaSnapshot.exists) {
+        return res.status(404).send("Raga not found");
+      }
+  
+      const userFavoriteRagasRef = userDocRef.collection(
+        "favorite_ragas_from_ragas"
+      );
+      const newFavoriteRagaRef = userFavoriteRagasRef.doc(); // Create a new document reference
+  
+      // Prepare data to be added
+      const favoriteRagaData = {
+        id: newFavoriteRagaRef.id, // ID of the new document
+        ragaReference: ragaRef, // Reference to the raga document
+      };
+
+      // Add the data to Firestore
+      await newFavoriteRagaRef.set(favoriteRagaData);
     }
+    else {
+      // get reference to user want to save raga from
+      const destUserRef = admin.firestore().collection("users").doc(destId);
+      const destUserSnapshot = await destUserRef.get();
+      
+      if (!destUserSnapshot.exists) {
+        return res.status(404).send("Dest User not found");
+      }
 
-    const userFavoriteRagasRef = userDocRef.collection(
-      "favorite_ragas_from_ragas"
-    );
-    const newFavoriteRagaRef = userFavoriteRagasRef.doc(); // Create a new document reference
+      // get reference to favorites collection of dest user
+      const destRagaFavoriteRef = destUserRef.collection("favorite_ragas");
+      const destTagaFavoriteSnapshot = await destRagaFavoriteRef.get();
 
-    // Prepare data to be added
-    const favoriteRagaData = {
-      id: newFavoriteRagaRef.id, // ID of the new document
-      userId: userId, // User ID
-      ragaId: ragaId, // Raga ID, comes from "ragas" collection
-      ragaReference: ragaRef, // Reference to the raga document
-    };
+      if (!destTagaFavoriteSnapshot.exists) {
+        return res.status(404).send("Dest Favorite not found");
+      }
 
-    // Add the data to Firestore
-    await newFavoriteRagaRef.set(favoriteRagaData);
+      // check raga in user favorites (created) collection
+      const ragaRef = destRagaFavoriteRef.doc(ragaId);
+      const ragaSnapshot = await ragaRef.get();
+      
+      if (!ragaSnapshot.exists) {
+        return res.status(404).send("Dest raga not found");
+      }
 
+      const userFavoriteRagasRef = userDocRef.collection(
+        "favorite_ragas_from_ragas"
+      );
+      
+      const newFavoriteRagaRef = userFavoriteRagasRef.doc(); // Create a new document reference
+
+      // Prepare data to be added
+      const favoriteRagaData = {
+        id: newFavoriteRagaRef.id, // ID of the new document
+        ragaReference: ragaRef, // Reference to the raga document
+      };
+
+      // Add the data to Firestore
+      await newFavoriteRagaRef.set(favoriteRagaData);
+    }
+    
     res.status(200).send(`Raga with ID: ${ragaId} added to user's favorites`);
   } catch (error) {
     console.error("Error:", error);
