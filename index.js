@@ -746,11 +746,11 @@ app.get("/getMyPrivateRecordings/:userId", async (req, res) => {
     }
  */
 
-app.post("/updateCreatedRaga/:userId", async (req, res) => {
+app.post("/updateCreatedRaga/:requestingUserId", async (req, res) => {
   try {
     // Extracting user ID from the URL parameter and raga object from request body
-    const { userId } = req.params;
-    let { id, name, category, inputs, vadi, samvadi, description, is_public } =
+    const { requestingUserId } = req.params;
+    let { id, userId, name, category, inputs, vadi, samvadi, description, is_public } =
       req.body;
 
     // Validations: Ensure raga object has essential properties
@@ -759,7 +759,7 @@ app.post("/updateCreatedRaga/:userId", async (req, res) => {
     }
 
     // Reference to the 'users' collection and specific user document in Firestore
-    const userDocRef = admin.firestore().collection("users").doc(userId);
+    const userDocRef = admin.firestore().collection("users").doc(requestingUserId);
 
     // Check if user exists
     const userDoc = await userDocRef.get();
