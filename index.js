@@ -314,6 +314,66 @@ app.get("/user/:userId", async (req, res) => {
   }
  */
 
+app.post("/updateRecording/:requestingUserId", async (req, res) => {
+  try {
+    // Extracting userId and recording details from the request
+    const { requestingUserId } = req.params;
+    const { id, userId, name, is_public, URL, date_created, duration } = req.body;
+
+    // Validate provided recording data
+    if (
+      !name ||
+      typeof name !== "string" ||
+      is_public === undefined ||
+      typeof is_public !== "boolean" ||
+      !URL ||
+      typeof URL !== "string" ||
+      !date_created ||
+      typeof date_created !== "string" ||
+      duration === undefined ||
+      typeof duration !== "number"
+    ) {
+      res.status(400).send({ message: "Bad Request: Invalid input data" });
+      return;
+    }
+
+    // Access the Firestore users collection
+    const userDocRef = admin.firestore().collection("users").doc(requestingUserId);
+
+    // Check for the existence of the user document
+    const userDoc = await userDocRef.get();
+    if (!userDoc.exists) {
+      res.status(404).send({ message: "User not found" });
+      return;
+    }
+
+    // Create a new recording in the "recordings" sub-collection
+    const newRecordingDocRef = userDocRef.collection("recordings").doc(id);
+
+    // Prepare the recording data,
+    const recordingData = {
+      id: newRecordingDocRef.id,
+      userId, // Add the userId field
+      name,
+      is_public,
+      URL,
+      date_created, // Store the date_created as a string
+      duration,
+    };
+
+    // Save the new recording data to Firestore
+    await newRecordingDocRef.set(recordingData);
+
+    // Respond with the saved recording data, including the generated ID
+    res.status(201).send({
+      message: "Recording changed successfully",
+    });
+  } catch (error) {
+    // Handle any errors
+    res.status(500).send(`Internal Server Error: ${error.message}`);
+  }
+});
+
 app.post("/user/:userId/recording", async (req, res) => {
   try {
     // Extracting userId and recording details from the request
@@ -686,6 +746,59 @@ app.get("/getMyPrivateRecordings/:userId", async (req, res) => {
     }
  */
 
+app.post("/updateCreatedRaga/:userId", async (req, res) => {
+  try {
+    // Extracting user ID from the URL parameter and raga object from request body
+    const { userId } = req.params;
+    let { id, name, category, inputs, vadi, samvadi, description, is_public } =
+      req.body;
+
+    // Validations: Ensure raga object has essential properties
+    if (!name || !category || !inputs || is_public === undefined) {
+      return res.status(400).send("Error: Missing essential raga properties.");
+    }
+
+    // Reference to the 'users' collection and specific user document in Firestore
+    const userDocRef = admin.firestore().collection("users").doc(userId);
+
+    // Check if user exists
+    const userDoc = await userDocRef.get();
+    if (!userDoc.exists) {
+      return res.status(404).send("Error: User not found.");
+    }
+
+    // Reference to 'favorite_ragas' sub-collection for the specified user
+    const favoriteRagaCollection = userDocRef.collection("favorite_ragas");
+
+    // Generating a new DocumentReference for our new raga
+    const newRagaRef = favoriteRagaCollection.doc(id);
+
+    // Constructing raga data including userId and is_public
+    const ragaData = {
+      id: newRagaRef.id,
+      userId,
+      name,
+      category,
+      inputs,
+      vadi,
+      samvadi,
+      description,
+      is_public,
+    };
+
+    // Saving the raga data to the new document reference
+    await newRagaRef.set(ragaData);
+
+    // Responding with the created raga object
+    res
+      .status(201)
+      .send({ message: "Raga changed successfully"});
+  } catch (error) {
+    // Handling errors and responding with status 400 (Bad Request) and error message
+    res.status(400).send(`Error: ${error}`);
+  }
+});
+
 app.post("/user/:userId/favorite_raga", async (req, res) => {
   try {
     // Extracting user ID from the URL parameter and raga object from request body
@@ -897,7 +1010,7 @@ app.post("/user/:userId/favorite_raga_from_ragas/:destId/:ragaId", async (req, r
       return res.status(404).send("Error: User not found.");
     }
 
-    if (destId == "Raga DB") {
+    if (destId == "RagaDB") {
       // get reference to raga database
       const ragaRef = admin.firestore().collection("ragas").doc(ragaId);
       const ragaSnapshot = await ragaRef.get();
@@ -932,7 +1045,7 @@ app.post("/user/:userId/favorite_raga_from_ragas/:destId/:ragaId", async (req, r
       const destRagaFavoriteRef = destUserRef.collection("favorite_ragas");
       const destTagaFavoriteSnapshot = await destRagaFavoriteRef.get();
 
-      if (!destTagaFavoriteSnapshot.exists) {
+      if (destTagaFavoriteSnapshot.empty) {
         return res.status(404).send("Dest Favorite not found");
       }
 
@@ -1061,6 +1174,8 @@ app.delete(
     }
   }
 );
+
+
 
 // ------------------------------------------------- Version --------------------------------------------------
 
