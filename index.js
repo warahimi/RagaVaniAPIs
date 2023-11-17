@@ -572,6 +572,47 @@ app.get("/getUsers", async (req, res) => {
 });
 
 /*
+  Delete a raga from user's "favorite_ragas" sub collection
+*/
+app.delete("/user/:userId/recording/:recordingId", async (req, res) => {
+  try {
+    // Extracting user ID and raga ID from the URL parameters
+    const { userId, recordingId } = req.params;
+
+    // Reference to the 'users' collection and specific user document in Firestore
+    const userDocRef = admin.firestore().collection("users").doc(userId);
+
+    // Check if user exists
+    const userDoc = await userDocRef.get();
+    if (!userDoc.exists) {
+      return res.status(404).send("Error: User not found.");
+    }
+
+    // Reference to the 'favorite_ragas' sub-collection and specific raga document for the specified user
+    const docRef = userDocRef.collection("recordings").doc(recordingId);
+
+    // Check if raga exists
+    const recDoc = await docRef.get();
+    if (!recDoc.exists) {
+      return res.status(404).send("Error: Raga not found.");
+    }
+
+    // Delete the specified raga document
+    await docRef.delete();
+
+    // Responding with a success message
+    res
+      .status(200)
+      .send(
+        `Raga with ID ${recordingId} successfully deleted from user ${userId}'s favorites.`
+      );
+  } catch (error) {
+    // Handling errors and responding with status 400 (Bad Request) and error message
+    res.status(400).send(`Error: ${error}`);
+  }
+});
+
+/*
     API endpoint to get all recordings (public and private) of a specific user.
     URL Example: https://us-central1-ragavaniauth.cloudfunctions.net/api/getAllMyRecordings/zxKAloMo2QUr0pnGupUYsBPPR382
     Returned JSON File format:
