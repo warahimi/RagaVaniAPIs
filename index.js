@@ -1218,7 +1218,7 @@ app.delete(
         .firestore()
         .collection("users")
         .doc(userId)
-        .collection("favorite_ragas_from_ragas")
+        .collection("favorite_ragas_from_ragas");
 
       if (userFavoriteRagasCollection.empty) {
         return res.status(404).send(`Favorite collection not found`);
@@ -1307,17 +1307,7 @@ app.post(
     }
   }
 );
-/*
- const usersCollection = admin.firestore().collection("users");
-    const usersSnapshot = await usersCollection.get();
-    const results = [];
 
-    // Iterate through each user
-    for (const userDoc of usersSnapshot.docs) {
-      const userData = userDoc.data();
-      const userPublicRecordings = [];
-
-*/
 app.get(
   "/user/:userId/favorite_recordings",
   async (req, res) => {
