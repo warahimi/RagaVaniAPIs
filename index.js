@@ -1331,7 +1331,7 @@ app.get(
         "favorite_recordings"
       );
 
-      const recordings = await usersCollection.get();
+      const recordings = await userFavoriteRef.get();
       const results = [];
 
       // Iterate through each user
@@ -1381,7 +1381,7 @@ app.get(
 );
 
 app.delete(
-  "/user/:userId/favorite_recordings/:destId/:recordingId",
+  "/user/:userId/favorite_recordings/:recordingId",
   async (req, res) => {
     try {
       const { userId, recordingId } = req.params;
