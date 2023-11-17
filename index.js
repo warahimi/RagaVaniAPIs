@@ -1085,6 +1085,7 @@ app.post(
         // Prepare data to be added
         const favoriteRagaData = {
           id: newFavoriteRagaRef.id, // ID of the new document
+          ragaId: ragaId,
           ragaReference: ragaRef, // Reference to the raga document
         };
 
@@ -1124,6 +1125,7 @@ app.post(
         // Prepare data to be added
         const favoriteRagaData = {
           id: newFavoriteRagaRef.id, // ID of the new document
+          ragaId: ragaId,
           ragaReference: ragaRef, // Reference to the raga document
         };
 
