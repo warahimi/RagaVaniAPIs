@@ -1101,59 +1101,64 @@ app.post(
 /*
   API to delete a raga from user's favorite_raga_from_ragas sub collection by id (document id)
 */
-app.delete("/user/:userId/favorite_raga_from_ragas_new/:id", async (req, res) => {
-  try {
-    const { userId, identifier } = req.params;
+app.delete(
+  "/user/:userId/favorite_raga_from_ragas_new/:id",
+  async (req, res) => {
+    try {
+      const { userId, identifier } = req.params;
 
-    // Validation
-    if (!userId || !identifier) {
-      return res.status(400).send("User ID and identifier must be provided");
-    }
-
-    const userDocRef = admin.firestore().collection("users").doc(userId);
-    const userExists = (await userDocRef.get()).exists;
-
-    if (!userExists) {
-      return res.status(404).send("Error: User not found.");
-    }
-
-    // Reference to the favorite_ragas_from_ragas sub-collection
-    const favoriteRagasRef = userDocRef.collection("favorite_ragas_from_ragas");
-
-    // Determine if the identifier is a Firestore document ID or a ragaId
-    const isFirestoreId = identifier.length === 20; // Assuming Firestore IDs have a specific length, adjust as needed
-
-    let docToDelete;
-
-    if (isFirestoreId) {
-      // If it's a Firestore ID, get the document directly
-      docToDelete = favoriteRagasRef.doc(identifier);
-    } else {
-      // If it's a ragaId, query the sub-collection to find the corresponding document
-      const querySnapshot = await favoriteRagasRef
-        .where(
-          "ragaReference",
-          "==",
-          admin.firestore().collection("ragas").doc(identifier)
-        )
-        .get();
-      if (querySnapshot.empty) {
-        return res.status(404).send("Favorite raga not found.");
+      // Validation
+      if (!userId || !identifier) {
+        return res.status(400).send("User ID and identifier must be provided");
       }
-      docToDelete = querySnapshot.docs[0].ref;
+
+      const userDocRef = admin.firestore().collection("users").doc(userId);
+      const userExists = (await userDocRef.get()).exists;
+
+      if (!userExists) {
+        return res.status(404).send("Error: User not found.");
+      }
+
+      // Reference to the favorite_ragas_from_ragas sub-collection
+      const favoriteRagasRef = userDocRef.collection(
+        "favorite_ragas_from_ragas"
+      );
+
+      // Determine if the identifier is a Firestore document ID or a ragaId
+      const isFirestoreId = identifier.length === 20; // Assuming Firestore IDs have a specific length, adjust as needed
+
+      let docToDelete;
+
+      if (isFirestoreId) {
+        // If it's a Firestore ID, get the document directly
+        docToDelete = favoriteRagasRef.doc(identifier);
+      } else {
+        // If it's a ragaId, query the sub-collection to find the corresponding document
+        const querySnapshot = await favoriteRagasRef
+          .where(
+            "ragaReference",
+            "==",
+            admin.firestore().collection("ragas").doc(identifier)
+          )
+          .get();
+        if (querySnapshot.empty) {
+          return res.status(404).send("Favorite raga not found.");
+        }
+        docToDelete = querySnapshot.docs[0].ref;
+      }
+
+      // Delete the document
+      await docToDelete.delete();
+
+      res
+        .status(200)
+        .send(`Favorite raga with identifier: ${identifier} has been deleted.`);
+    } catch (error) {
+      console.error("Error:", error);
+      res.status(500).send(`Internal Server Error: ${error}`);
     }
-
-    // Delete the document
-    await docToDelete.delete();
-
-    res
-      .status(200)
-      .send(`Favorite raga with identifier: ${identifier} has been deleted.`);
-  } catch (error) {
-    console.error("Error:", error);
-    res.status(500).send(`Internal Server Error: ${error}`);
   }
-});
+);
 
 /*
     API to get a user's favoirite raga from favorite_ragas_from_ragas sub collection 
@@ -1223,7 +1228,7 @@ app.delete(
       if (userFavoriteRagasCollection.empty) {
         return res.status(404).send(`Favorite collection not found`);
       }
-        
+
       const ragaRef = userFavoriteRagasCollection.doc(ragaId);
 
       await ragaRef.delete();
@@ -1239,8 +1244,138 @@ app.delete(
   }
 );
 
-
 // ---------------- saving others recordings
+
+// app.post(
+//   "/user/:userId/favorite_recordings/:destId/:recordingId",
+//   async (req, res) => {
+//     try {
+//       const { userId, destId, recordingId } = req.params;
+
+//       if (!userId || !recordingId || !destId) {
+//         return res
+//           .status(400)
+//           .send("Both User ID and Raga ID must be provided");
+//       }
+
+//       const userDocRef = admin.firestore().collection("users").doc(userId);
+//       const userDoc = await userDocRef.get();
+
+//       if (!userDoc.exists) {
+//         return res.status(404).send("Error: User not found.");
+//       }
+
+//       // get reference to user want to save raga from
+//       const destUserRef = admin.firestore().collection("users").doc(destId);
+//       const destUserSnapshot = await destUserRef.get();
+
+//       if (!destUserSnapshot.exists) {
+//         return res.status(404).send("Dest User not found");
+//       }
+
+//       // get reference to favorites collection of dest user
+//       const destFavoriteRef = destUserRef.collection("recordings");
+//       const destFavoriteSnapshot = await destRagaFavoriteRef.get();
+
+//       if (destFavoriteSnapshot.empty) {
+//         return res.status(404).send("Dest Favorite not found");
+//       }
+
+//       // check raga in user favorites (created) collection
+//       const recordingRef = destFavoriteRef.doc(ragaId);
+//       const recordingSnapshot = await recordingRef.get();
+
+//       if (!recordingSnapshot.exists) {
+//         return res.status(404).send("Dest rec not found");
+//       }
+
+//       const userFavoriteRef = userDocRef.collection("favorite_recordings");
+
+//       const newFavoriteRef = userFavoriteRef.doc(); // Create a new document reference
+
+//       // Prepare data to be added
+//       const favoriteData = {
+//         id: newFavoriteRef.id, // ID of the new document
+//         user_id: destId,
+//       };
+
+//       // Add the data to Firestore
+//       await newFavoriteRef.set(favoriteData);
+
+//       res
+//         .status(201)
+//         .send(`Raga with ID: ${recordingId} added to user's favorites`);
+//     } catch (error) {
+//       console.error("Error:", error);
+//       res.status(500).send(`Internal Server Error: ${error}`);
+//     }
+//   }
+// );
+
+// app.get("/user/:userId/favorite_recordings", async (req, res) => {
+//   try {
+//     const { userId } = req.params;
+
+//     if (!userId) {
+//       return res.status(400).send("Both User ID and Raga ID must be provided");
+//     }
+
+//     const userDocRef = admin.firestore().collection("users").doc(userId);
+//     const userDoc = await userDocRef.get();
+
+//     if (!userDoc.exists) {
+//       return res.status(404).send("Error: User not found.");
+//     }
+
+//     const userFavoriteRef = userDocRef.collection("favorite_recordings");
+
+//     //const recordings = await usersCollection.get();
+//     const recordings = await userFavoriteRef.get();
+//     const results = [];
+
+//     // Iterate through each user
+//     for (const recordingDoc of recordings.docs) {
+//       const recordingData = recordingDoc.data();
+
+//       const destId = recordingData.user_id;
+//       const recId = recordingData.id;
+
+//       const destDocRef = admin.firestore().collection("users").doc(destId);
+//       const destDoc = await destDocRef.get();
+
+//       if (!destDoc.exists) {
+//         continue;
+//       }
+
+//       const destRecordingRef = destDocRef.collection("recordings");
+//       const recordingDoc = await destRecordingRef.get();
+
+//       if (recordingDoc.empty) {
+//         continue;
+//       }
+
+//       const recordingRef = destRecordingRef.doc();
+//       const recordingData = await recordingRef.get(recId);
+
+//       if (!recordingData.exists) {
+//         continue;
+//       }
+
+//       // Add user, their public recordings, and favorite ragas to results
+//       results.push({
+//         id: recordingData.id,
+//         ...recordingData.data(),
+//       });
+//     }
+
+//     res.status(201).send({
+//       recordings: results,
+//     });
+//   } catch (error) {
+//     console.error("Error:", error);
+//     res.status(500).send(`Internal Server Error: ${error}`);
+//   }
+// });
 
 app.post(
   "/user/:userId/favorite_recordings/:destId/:recordingId",
@@ -1248,10 +1383,10 @@ app.post(
     try {
       const { userId, destId, recordingId } = req.params;
 
-      if (!userId || !recordingId || !destId) {
+      if (!userId || !destId || !recordingId) {
         return res
           .status(400)
-          .send("Both User ID and Raga ID must be provided");
+          .send("User ID, Dest ID, and Recording ID must be provided");
       }
 
       const userDocRef = admin.firestore().collection("users").doc(userId);
@@ -1261,7 +1396,6 @@ app.post(
         return res.status(404).send("Error: User not found.");
       }
 
-      // get reference to user want to save raga from
       const destUserRef = admin.firestore().collection("users").doc(destId);
       const destUserSnapshot = await destUserRef.get();
 
@@ -1269,38 +1403,27 @@ app.post(
         return res.status(404).send("Dest User not found");
       }
 
-      // get reference to favorites collection of dest user
       const destFavoriteRef = destUserRef.collection("recordings");
-      const destFavoriteSnapshot = await destRagaFavoriteRef.get();
-
-      if (destFavoriteSnapshot.empty) {
-        return res.status(404).send("Dest Favorite not found");
-      }
-
-      // check raga in user favorites (created) collection
-      const recordingRef = destFavoriteRef.doc(ragaId);
+      const recordingRef = destFavoriteRef.doc(recordingId);
       const recordingSnapshot = await recordingRef.get();
 
       if (!recordingSnapshot.exists) {
-        return res.status(404).send("Dest rec not found");
+        return res.status(404).send("Recording not found");
       }
 
-      const userFavoriteRef = userDocRef.collection(
-        "favorite_recordings"
-      );
+      const userFavoriteRef = userDocRef.collection("favorite_recordings");
+      const newFavoriteRef = userFavoriteRef.doc(recordingId); // Use the recording ID
 
-      const newFavoriteRef = userFavoriteRef.doc(); // Create a new document reference
-
-      // Prepare data to be added
       const favoriteData = {
-        id: newFavoriteRef.id, // ID of the new document
+        id: recordingId,
         user_id: destId,
       };
 
-      // Add the data to Firestore
       await newFavoriteRef.set(favoriteData);
 
-      res.status(201).send(`Raga with ID: ${recordingId} added to user's favorites`);
+      res
+        .status(201)
+        .send(`Recording with ID: ${recordingId} added to user's favorites`);
     } catch (error) {
       console.error("Error:", error);
       res.status(500).send(`Internal Server Error: ${error}`);
@@ -1308,77 +1431,57 @@ app.post(
   }
 );
 
-app.get(
-  "/user/:userId/favorite_recordings",
-  async (req, res) => {
-    try {
-      const { userId  } = req.params;
+app.get("/user/:userId/favorite_recordings", async (req, res) => {
+  try {
+    const { userId } = req.params;
 
-      if (!userId) {
-        return res
-          .status(400)
-          .send("Both User ID and Raga ID must be provided");
+    if (!userId) {
+      return res.status(400).send("User ID must be provided");
+    }
+
+    const userDocRef = admin.firestore().collection("users").doc(userId);
+    const userDoc = await userDocRef.get();
+
+    if (!userDoc.exists) {
+      return res.status(404).send("Error: User not found.");
+    }
+
+    const userFavoriteRef = userDocRef.collection("favorite_recordings");
+    const recordings = await userFavoriteRef.get();
+    const results = [];
+
+    for (const recordingDoc of recordings.docs) {
+      const recordingData = recordingDoc.data();
+      const destId = recordingData.user_id;
+      const recId = recordingData.id;
+
+      const destDocRef = admin.firestore().collection("users").doc(destId);
+      const destDoc = await destDocRef.get();
+
+      if (!destDoc.exists) {
+        continue;
       }
 
-      const userDocRef = admin.firestore().collection("users").doc(userId);
-      const userDoc = await userDocRef.get();
+      const destRecordingRef = destDocRef.collection("recordings");
+      const specificRecordingRef = destRecordingRef.doc(recId);
+      const specificRecordingDoc = await specificRecordingRef.get();
 
-      if (!userDoc.exists) {
-        return res.status(404).send("Error: User not found.");
+      if (!specificRecordingDoc.exists) {
+        continue;
       }
 
-      const userFavoriteRef = userDocRef.collection(
-        "favorite_recordings"
-      );
-
-      const recordings = await usersCollection.get();
-      const results = [];
-
-      // Iterate through each user
-      for (const recordingDoc of recordings.docs) {
-        const recordingData = recordingDoc.data();
-        
-        const destId = recordingData.user_id;
-        const recId = recordingData.id;
-    
-        const destDocRef = admin.firestore().collection("users").doc(destId);
-        const destDoc = await destDocRef.get();
-    
-        if (!destDoc.exists) {
-          continue;
-        }
-    
-        const destRecordingRef = destDocRef.collection("recordings");
-        const recordingDoc = await destRecordingRef.get();
-    
-        if (recordingDoc.empty) {
-          continue;
-        }
-    
-        const recordingRef = destRecordingRef.doc();
-        const recordingData = await recordingRef.get(recId);
-    
-        if (!recordingData.exists) {
-          continue;
-        }
-        
-        // Add user, their public recordings, and favorite ragas to results
-        results.push({
-          id: recordingData.id,
-          ...recordingData.data(),
-        });
-      }
-    
-
-      res.status(201).send({
-        recordings:results,
+      results.push({
+        id: specificRecordingDoc.id,
+        ...specificRecordingDoc.data(),
       });
-    } catch (error) {
-      console.error("Error:", error);
-      res.status(500).send(`Internal Server Error: ${error}`);
     }
+
+    res.status(200).send({ recordings: results });
+  } catch (error) {
+    console.error("Error:", error);
+    res.status(500).send(`Internal Server Error: ${error}`);
   }
-);
+});
 
 app.delete(
   "/user/:userId/favorite_recordings/:destId/:recordingId",
@@ -1399,16 +1502,16 @@ app.delete(
         return res.status(404).send("Error: User not found.");
       }
 
-      const userFavoriteRef = userDocRef.collection(
-        "favorite_recordings"
-      );
+      const userFavoriteRef = userDocRef.collection("favorite_recordings");
 
       const newFavoriteRef = userFavoriteRef.doc(recordingId); // Create a new document reference
 
       // Add the data to Firestore
       await newFavoriteRef.delete();
 
-      res.status(201).send(`Raga with ID: ${recordingId} removed to user's favorites`);
+      res
+        .status(201)
+        .send(`Raga with ID: ${recordingId} removed to user's favorites`);
     } catch (error) {
       console.error("Error:", error);
       res.status(500).send(`Internal Server Error: ${error}`);
