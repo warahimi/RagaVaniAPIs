@@ -1271,10 +1271,21 @@ app.delete(
       if (userFavoriteRagasCollection.empty) {
         return res.status(404).send(`Favorite collection not found`);
       }
+      const querySnapshot = await userFavoriteRagasCollection
+        .where(
+          "ragaId",
+          "==",
+          ragaId
+        )
+        .get();
 
-      const ragaRef = userFavoriteRagasCollection.doc(ragaId);
+      if (querySnapshot.empty) {
+          return res.status(404).send("Favorite raga not found.");
+      }
+      
+      const docToDelete = querySnapshot.docs[0].ref;
 
-      await ragaRef.delete();
+      await docToDelete.delete();
 
       // Respond to the client indicating successful deletion
       res
