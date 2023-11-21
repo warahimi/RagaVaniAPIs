@@ -298,6 +298,39 @@ app.get("/user/:userId", async (req, res) => {
   }
 });
 
+/**
+ *  To delete a user profile from the "users" collection
+ */
+
+app.delete("/user/:userId", async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    // Validation
+    if (!userId) {
+      return res.status(400).send("User ID must be provided");
+    }
+
+    const userDocRef = admin.firestore().collection("users").doc(userId);
+
+    // Check if the user exists
+    const userDoc = await userDocRef.get();
+    if (!userDoc.exists) {
+      return res.status(404).send("Error: User not found.");
+    }
+
+    // Delete the user document
+    await userDocRef.delete();
+
+    res
+      .status(200)
+      .send(`User with ID: ${userId} has been deleted successfully.`);
+  } catch (error) {
+    console.error("Error:", error);
+    res.status(500).send(`Internal Server Error: ${error}`);
+  }
+});
+
 // ------------------------------------------------- Recording --------------------------------------------------
 
 /**
@@ -1272,17 +1305,13 @@ app.delete(
         return res.status(404).send(`Favorite collection not found`);
       }
       const querySnapshot = await userFavoriteRagasCollection
-        .where(
-          "ragaId",
-          "==",
-          ragaId
-        )
+        .where("ragaId", "==", ragaId)
         .get();
 
       if (querySnapshot.empty) {
-          return res.status(404).send("Favorite raga not found.");
+        return res.status(404).send("Favorite raga not found.");
       }
-      
+
       const docToDelete = querySnapshot.docs[0].ref;
 
       await docToDelete.delete();
