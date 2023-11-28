@@ -97,6 +97,7 @@ app.post("/ragas", async (req, res) => {
       }
     ]
  */
+
 app.post("/ragas/list", async (req, res) => {
   try {
     const ragas = req.body; // Extracting the ragas array from the request body
@@ -105,10 +106,9 @@ app.post("/ragas/list", async (req, res) => {
 
     // Looping through each raga object in the provided array
     ragas.forEach((raga) => {
-      // Creating a new document reference with an auto-generated ID
-      const newRagaRef = ragaCollection.doc();
-      // Adding the new raga to the batched write
-      batch.set(newRagaRef, raga);
+      const newRagaRef = ragaCollection.doc(); // Creating a new document reference with an auto-generated ID
+      const ragaWithId = { ...raga, id: newRagaRef.id }; // Adding the document ID to the raga object
+      batch.set(newRagaRef, ragaWithId); // Adding the new raga with ID to the batched write
     });
 
     // Committing the batched writes to Firestore
